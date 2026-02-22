@@ -559,7 +559,6 @@ async function searchDrug() {
 
 function renderFlashcards(data) {
   const cm = { teal:'#4fc3c3', purple:'#7c6fd4', gold:'#c9a84c', red:'#ef5350' };
-  // Guardar data actual para los downloads
   S.currentFlashcardData = data;
 
   document.getElementById('flashcardsContainer').innerHTML = `
@@ -577,18 +576,33 @@ function renderFlashcards(data) {
     <div class="flashcards-grid" id="flashcardsGrid">
       ${(data.cards || []).map((c, i) => {
         const col = cm[c.color] || cm.teal;
-        return `<div class="flashcard" style="animation-delay:${i*.06}s;border-top:2px solid ${col}50">
+        return `<div class="flashcard" id="fc-${i}" style="animation-delay:${i*.06}s;border-top:2px solid ${col}50;position:relative">
+          <button onclick="openEditModal(${i})" title="Editar" style="
+            position:absolute;top:10px;right:10px;
+            background:rgba(255,255,255,0.06);border:1px solid rgba(255,255,255,0.12);
+            border-radius:7px;color:var(--text-dim);font-size:.75rem;
+            padding:.3rem .6rem;cursor:pointer;transition:all .2s;z-index:2;
+            font-family:'DM Mono',monospace;
+          " onmouseover="this.style.color='var(--accent)';this.style.borderColor='var(--accent)'"
+             onmouseout="this.style.color='var(--text-dim)';this.style.borderColor='rgba(255,255,255,0.12)'">
+            ✏️ Editar
+          </button>
           <div class="fc-header">
             <div class="fc-icon" style="background:${col}20;color:${col}">${c.icono}</div>
             <div class="fc-title" style="color:${col}">${c.titulo}</div>
           </div>
-          <div class="fc-body">
-            ${c.contenido}
+          <div class="fc-body" id="fc-body-${i}">
+            <div id="fc-content-${i}">${c.contenido}</div>
             ${c.enApuntes && c.notaApuntes ? `
-              <div class="apuntes-note-box">
+              <div class="apuntes-note-box" id="fc-nota-box-${i}">
                 <div class="apuntes-note-label">📝 EN TUS APUNTES</div>
-                <div style="font-size:.88rem">${c.notaApuntes}</div>
-              </div>` : ''}
+                <div id="fc-nota-${i}" style="font-size:.88rem">${c.notaApuntes}</div>
+              </div>` : `<div id="fc-nota-box-${i}" style="display:none">
+                <div class="apuntes-note-box">
+                  <div class="apuntes-note-label">📝 EN TUS APUNTES</div>
+                  <div id="fc-nota-${i}" style="font-size:.88rem"></div>
+                </div>
+              </div>`}
             <div style="margin-top:.75rem">
               <span class="badge badge-ai">🤖 Groq · Llama 4</span>
               ${c.enApuntes ? '<span class="badge badge-notes" style="margin-left:.3rem">📝 Apuntes</span>' : ''}
@@ -597,6 +611,123 @@ function renderFlashcards(data) {
         </div>`;
       }).join('')}
     </div>`;
+}
+
+// ══════════════════════════════
+// MODAL DE EDICIÓN
+// ══════════════════════════════
+function openEditModal(cardIndex) {
+  const data = S.currentFlashcardData;
+  if (!data?.cards?.[cardIndex]) return;
+  const card = data.cards[cardIndex];
+  const cm = { teal:'#4fc3c3', purple:'#7c6fd4', gold:'#c9a84c', red:'#ef5350' };
+  const col = cm[card.color] || cm.teal;
+
+  // Crear modal si no existe
+  let modal = document.getElementById('editModal');
+  if (!modal) {
+    modal = document.createElement('div');
+    modal.id = 'editModal';
+    modal.style.cssText = `
+      position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);padding:1rem;
+    `;
+    document.body.appendChild(modal);
+  }
+
+  modal.innerHTML = `
+    <div style="
+      background:#0d1020;border:1px solid #1e2545;border-radius:18px;
+      width:100%;max-width:620px;max-height:90vh;overflow-y:auto;
+      box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    ">
+      <!-- Header -->
+      <div style="padding:1.4rem 1.6rem;border-bottom:1px solid #1e2545;display:flex;align-items:center;justify-content:space-between">
+        <div style="display:flex;align-items:center;gap:.75rem">
+          <div style="width:10px;height:10px;border-radius:50%;background:${col}"></div>
+          <span style="font-family:'DM Mono',monospace;font-size:.8rem;color:${col};text-transform:uppercase;letter-spacing:.1em">${card.titulo}</span>
+        </div>
+        <button onclick="closeEditModal()" style="background:none;border:none;color:var(--text-dim);font-size:1.3rem;cursor:pointer;padding:.2rem .5rem;border-radius:6px"
+          onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-dim)'">✕</button>
+      </div>
+
+      <!-- Body -->
+      <div style="padding:1.6rem;display:flex;flex-direction:column;gap:1.2rem">
+
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:.72rem;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:.5rem">
+            📋 Contenido principal
+          </label>
+          <textarea id="editContenido" rows="7" style="
+            width:100%;background:#07080f;border:1px solid #1e2545;border-radius:10px;
+            color:var(--text);font-family:'Crimson Pro',serif;font-size:1rem;
+            padding:.9rem 1rem;resize:vertical;line-height:1.6;outline:none;
+            transition:border-color .2s;
+          " onfocus="this.style.borderColor='${col}'" onblur="this.style.borderColor='#1e2545'"
+          >${card.contenido}</textarea>
+        </div>
+
+        <div>
+          <label style="font-family:'DM Mono',monospace;font-size:.72rem;color:#c9a84c;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:.5rem">
+            📝 Nota de tus apuntes <span style="color:var(--text-dim);font-size:.65rem">(opcional)</span>
+          </label>
+          <textarea id="editNota" rows="4" placeholder="Escribe aquí información adicional de tus apuntes..." style="
+            width:100%;background:#1a130a;border:1px solid #3a2a10;border-radius:10px;
+            color:#c9a84c;font-family:'Crimson Pro',serif;font-size:.95rem;
+            padding:.9rem 1rem;resize:vertical;line-height:1.6;outline:none;
+            transition:border-color .2s;
+          " onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='#3a2a10'"
+          >${card.notaApuntes || ''}</textarea>
+        </div>
+
+        <div style="display:flex;gap:.75rem;justify-content:flex-end;padding-top:.5rem">
+          <button onclick="closeEditModal()" class="btn btn-secondary">Cancelar</button>
+          <button onclick="saveCardEdit(${cardIndex})" class="btn btn-primary">💾 Guardar cambios</button>
+        </div>
+      </div>
+    </div>
+  `;
+
+  modal.style.display = 'flex';
+  // Cerrar al hacer click fuera
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) closeEditModal();
+  }, { once: true });
+
+  // Focus en el textarea
+  setTimeout(() => document.getElementById('editContenido')?.focus(), 100);
+}
+
+function closeEditModal() {
+  const modal = document.getElementById('editModal');
+  if (modal) modal.style.display = 'none';
+}
+
+function saveCardEdit(cardIndex) {
+  const data = S.currentFlashcardData;
+  if (!data?.cards?.[cardIndex]) return;
+
+  const nuevoContenido = document.getElementById('editContenido').value.trim();
+  const nuevaNota      = document.getElementById('editNota').value.trim();
+
+  if (!nuevoContenido) { toast('⚠ El contenido no puede estar vacío', 'warn'); return; }
+
+  // Actualizar en memoria
+  data.cards[cardIndex].contenido   = nuevoContenido;
+  data.cards[cardIndex].notaApuntes = nuevaNota;
+  data.cards[cardIndex].enApuntes   = nuevaNota.length > 0;
+
+  // Actualizar DOM sin re-renderizar todo
+  const contentEl  = document.getElementById(`fc-content-${cardIndex}`);
+  const notaEl     = document.getElementById(`fc-nota-${cardIndex}`);
+  const notaBoxEl  = document.getElementById(`fc-nota-box-${cardIndex}`);
+
+  if (contentEl) contentEl.textContent = nuevoContenido;
+  if (notaEl)    notaEl.textContent    = nuevaNota;
+  if (notaBoxEl) notaBoxEl.style.display = nuevaNota ? 'block' : 'none';
+
+  closeEditModal();
+  toast('✅ Flashcard actualizada', 'ok');
 }
 
 // ══════════════════════════════════════════════

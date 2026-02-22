@@ -186,25 +186,33 @@ app.post("/api/flashcards", async (req, res) => {
   const { drug } = req.body;
   if (!drug) return res.status(400).json({ error: "Fármaco requerido" });
   try {
-    const chunks = relevantChunks(drug, globalChunks, 4);
-    const ctx = chunks.length ? `\n\nDe los apuntes de la estudiante:\n${chunks.join("\n---\n")}` : "";
+    const chunks = relevantChunks(drug, globalChunks, 6);
+    const hasNotes = chunks.length > 0;
+    const ctx = hasNotes
+      ? `\n\nAPUNTES DE LA ESTUDIANTE (úsalos como fuente primaria y cítalos textualmente en notaApuntes):\n${chunks.join("\n---\n")}`
+      : "";
 
     const raw = await groq(
-      "Eres farmacólogo clínico experto. Respondes en español con JSON puro válido, sin markdown.",
-      `Genera información farmacológica completa sobre: ${drug}${ctx}
+      "Eres farmacólogo clínico experto. Respondes en español con JSON puro válido, sin markdown, sin texto antes ni después del JSON.",
+      `Genera información farmacológica DETALLADA y COMPLETA sobre: ${drug}${ctx}
+
+INSTRUCCIONES IMPORTANTES:
+- El contenido de cada card debe ser extenso y clínico (mínimo 3-4 oraciones por card)
+- Si hay apuntes de la estudiante: INTÉGRALOS en el contenido y pon enApuntes=true con la cita textual en notaApuntes
+- Si no hay apuntes: usa tu conocimiento farmacológico completo (Goodman & Gilman, Katzung)
+- Sé específico: menciona nombres de enzimas, receptores, vías, porcentajes, tiempos
 
 Responde ÚNICAMENTE con este JSON sin texto extra ni backticks:
-{"nombre":"nombre oficial","familia":"grupo farmacológico","cards":[
-{"titulo":"Mecanismo de Acción","icono":"⚙️","color":"teal","contenido":"mecanismo molecular detallado","enApuntes":false,"notaApuntes":""},
-{"titulo":"Espectro / Clasificación","icono":"🔭","color":"purple","contenido":"clasificación y espectro","enApuntes":false,"notaApuntes":""},
-{"titulo":"Indicaciones Clínicas","icono":"✅","color":"gold","contenido":"usos aprobados","enApuntes":false,"notaApuntes":""},
-{"titulo":"Contraindicaciones","icono":"🚫","color":"red","contenido":"absolutas y relativas","enApuntes":false,"notaApuntes":""},
-{"titulo":"Interacciones Farmacológicas","icono":"⚡","color":"purple","contenido":"interacciones relevantes","enApuntes":false,"notaApuntes":""},
-{"titulo":"Reacciones Adversas (RAM)","icono":"⚠️","color":"gold","contenido":"efectos adversos","enApuntes":false,"notaApuntes":""},
-{"titulo":"Farmacocinética (ADME)","icono":"📊","color":"teal","contenido":"ADME completo","enApuntes":false,"notaApuntes":""},
-{"titulo":"Dosis y Presentaciones","icono":"💊","color":"gold","contenido":"dosis adultos y presentaciones","enApuntes":false,"notaApuntes":""}
-]}
-Si algo coincide con apuntes: enApuntes=true, notaApuntes=texto del apunte.`, 0.3
+{"nombre":"nombre oficial completo","familia":"grupo farmacológico detallado","cards":[
+{"titulo":"Mecanismo de Acción","icono":"⚙️","color":"teal","contenido":"mecanismo molecular muy detallado con receptores, enzimas y vías involucradas","enApuntes":false,"notaApuntes":""},
+{"titulo":"Espectro / Clasificación","icono":"🔭","color":"purple","contenido":"clasificación completa y espectro de actividad detallado","enApuntes":false,"notaApuntes":""},
+{"titulo":"Indicaciones Clínicas","icono":"✅","color":"gold","contenido":"todas las indicaciones aprobadas con contexto clínico","enApuntes":false,"notaApuntes":""},
+{"titulo":"Contraindicaciones","icono":"🚫","color":"red","contenido":"contraindicaciones absolutas y relativas con justificación clínica","enApuntes":false,"notaApuntes":""},
+{"titulo":"Interacciones Farmacológicas","icono":"⚡","color":"purple","contenido":"interacciones relevantes con mecanismo de cada una","enApuntes":false,"notaApuntes":""},
+{"titulo":"Reacciones Adversas (RAM)","icono":"⚠️","color":"gold","contenido":"efectos adversos organizados por frecuencia y severidad","enApuntes":false,"notaApuntes":""},
+{"titulo":"Farmacocinética (ADME)","icono":"📊","color":"teal","contenido":"ADME completo con biodisponibilidad, Vd, unión proteínas, metabolismo CYP, t½, eliminación","enApuntes":false,"notaApuntes":""},
+{"titulo":"Dosis y Presentaciones","icono":"💊","color":"gold","contenido":"dosis exactas en adultos, ajustes especiales y presentaciones disponibles","enApuntes":false,"notaApuntes":""}
+]}`, 0.35
     );
     const m = raw.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
     if (!m) throw new Error("Respuesta no válida. Intenta de nuevo.");
