@@ -216,60 +216,78 @@ Si algo coincide con apuntes: enApuntes=true, notaApuntes=texto del apunte.`, 0.
 });
 
 // ─────────────────────────────────────────────
-// QUIZ — con auto-reparación de JSON truncado
+// QUIZ — por lotes para soportar hasta 20 preguntas
 // ─────────────────────────────────────────────
 app.post("/api/quiz", async (req, res) => {
-  const { drugs, count = 5, difficulty = "intermedia", type = "mixto" } = req.body;
+  const { drugs, count = 10, difficulty = "intermedia", type = "mixto" } = req.body;
   if (!drugs) return res.status(400).json({ error: "Medicamentos requeridos" });
 
-  // Limitar a 5 para evitar truncamiento con dificultad avanzada
-  const n = Math.min(parseInt(count) || 5, 5);
+  const total = Math.min(parseInt(count) || 10, 20);
+  const BATCH = 5; // generamos de 5 en 5 para evitar truncamiento
 
-  const chunks = relevantChunks(drugs, globalChunks, 2);
-  const ctx = chunks.length ? `\nApuntes relevantes:\n${chunks.join("\n").slice(0, 800)}` : "";
+  const chunks = relevantChunks(drugs, globalChunks, 3);
+  const ctx = chunks.length ? `\nApuntes de la estudiante:\n${chunks.join("\n").slice(0, 1000)}` : "";
 
   const diffs = {
-    basica: "básico", intermedia: "intermedio con aplicación clínica",
-    avanzada: "intermedio-avanzado con caso clínico breve"
+    basica:     "básico: preguntas directas sobre definiciones y conceptos fundamentales",
+    intermedia: "intermedio: aplicación clínica, mecanismos de acción detallados y farmacocinética",
+    avanzada:   "avanzado estilo MIR/USMLE: casos clínicos complejos con paciente (edad, sexo, síntomas, antecedentes), diagnóstico diferencial y razonamiento terapéutico complejo"
   };
   const types = {
-    mixto: "variadas", mecanismo: "mecanismos de acción",
-    clinico: "casos clínicos breves", interacciones: "interacciones y RAM"
+    mixto:         "variadas (mecanismo de acción, indicaciones, RAM, interacciones, farmacocinética, dosis)",
+    mecanismo:     "exclusivamente sobre mecanismos de acción moleculares y targets farmacológicos",
+    clinico:       "casos clínicos completos con presentación de paciente y toma de decisiones terapéuticas",
+    interacciones: "interacciones farmacológicas, reacciones adversas graves y toxicología"
   };
 
   try {
-    const raw = await groq(
-      "Docente de farmacología. Respondes SOLO con JSON array válido y COMPLETO. Sin texto ni markdown.",
-      `Genera EXACTAMENTE ${n} preguntas sobre: ${drugs}
-Dificultad: ${diffs[difficulty]}. Tipo: ${types[type]}.${ctx}
+    const allQuestions = [];
+    const batches = Math.ceil(total / BATCH);
 
-CRÍTICO: JSON debe ser COMPLETO y VÁLIDO. Opciones máximo 10 palabras.
-Sin texto antes ni después del array:
+    for (let b = 0; b < batches; b++) {
+      const batchSize = Math.min(BATCH, total - allQuestions.length);
+      if (batchSize <= 0) break;
 
-[{"pregunta":"pregunta concisa (máx 40 palabras)","fuente":"Katzung 15a Ed.","opciones":["A corta","B corta","C corta","D corta"],"respuesta":0,"explicacion":"explicación breve del mecanismo (máx 30 palabras)"}]
+      console.log(`  Quiz lote ${b+1}/${batches}: ${batchSize} preguntas...`);
 
-Cierra TODOS los corchetes y llaves. Solo el array JSON.`, 0.3
-    );
+      const raw = await groq(
+        "Eres docente experto en farmacología clínica. Generas preguntas de examen de alta calidad en español. Respondes SOLO con JSON array válido y COMPLETO, sin texto adicional, sin markdown.",
+        `Genera EXACTAMENTE ${batchSize} preguntas de opción múltiple sobre: ${drugs}
+Dificultad: ${diffs[difficulty]}
+Tipo: ${types[type]}${ctx}
 
-    const clean = raw.replace(/```json|```/g,"").trim();
-    const m = clean.match(/\[[\s\S]*\]/);
-    if (!m) throw new Error("La IA no devolvió preguntas. Intenta de nuevo.");
+Para dificultad avanzada: incluye caso clínico completo en el enunciado (paciente con edad, sexo, síntomas, antecedentes relevantes, resultados de laboratorio si aplica).
+Las opciones deben ser plausibles y el distractores bien elaborados.
+La explicación debe ser educativa y mencionar el mecanismo farmacológico.
 
-    let questions;
-    try {
-      questions = JSON.parse(m[0]);
-    } catch {
-      // Reparar JSON truncado
-      const partial = m[0];
-      const last = partial.lastIndexOf("},");
-      if (last > 5) {
-        questions = JSON.parse(partial.slice(0, last + 1) + "]");
-      } else {
-        throw new Error("Error de formato. Intenta de nuevo con menos preguntas.");
+Responde SOLO con el array JSON sin texto antes ni después:
+[{"pregunta":"enunciado completo y detallado","fuente":"Goodman & Gilman 14a Ed. / Katzung 15a Ed. / Rang & Dale 9a Ed.","opciones":["opción A completa","opción B completa","opción C completa","opción D completa"],"respuesta":0,"explicacion":"explicación detallada del mecanismo y por qué las otras opciones son incorrectas"}]
+
+CRÍTICO: JSON debe estar COMPLETO y ser válido. Cierra TODOS los corchetes y llaves.`, 0.5
+      );
+
+      const clean = raw.replace(/```json|```/g, "").trim();
+      const m = clean.match(/\[[\s\S]*\]/);
+      if (!m) { console.log("  lote sin JSON, continuando..."); continue; }
+
+      let batch;
+      try {
+        batch = JSON.parse(m[0]);
+      } catch {
+        // Reparar JSON truncado
+        const last = m[0].lastIndexOf("},");
+        if (last > 5) {
+          try { batch = JSON.parse(m[0].slice(0, last + 1) + "]"); }
+          catch { console.log("  lote irreparable, continuando..."); continue; }
+        } else continue;
       }
+
+      if (Array.isArray(batch)) allQuestions.push(...batch);
     }
-    if (!Array.isArray(questions) || !questions.length) throw new Error("No se generaron preguntas.");
-    res.json(questions);
+
+    if (!allQuestions.length) throw new Error("No se generaron preguntas. Intenta de nuevo.");
+    res.json(allQuestions);
+
   } catch (err) {
     console.error("❌ quiz:", err.response?.data || err.message);
     res.status(500).json({ error: err.response?.data?.error?.message || err.message });
