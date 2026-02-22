@@ -635,172 +635,75 @@ const CARD_LABELS = {
 };
 
 // ══════════════════════════════════════════════
-// DESCARGAR PDF — dibujado 100% con jsPDF
+// DESCARGAR PDF — renderiza igual que la imagen, embebe en PDF
 // ══════════════════════════════════════════════
 async function downloadFlashcardsPDF() {
   const data = S.currentFlashcardData;
   if (!data?.cards?.length) { toast('⚠ No hay flashcards para descargar', 'warn'); return; }
 
-  toast('⏳ Generando PDF...', 'normal', 8000);
+  toast('⏳ Generando PDF...', 'normal', 10000);
+
+  // Cargar jsPDF
   if (!window.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
 
+  // 1) Generar el canvas exactamente igual que la imagen
+  const imgCanvas = await buildFlashcardsCanvas(data);
+
+  // 2) El canvas puede ser muy alto — dividirlo en páginas A4
   const { jsPDF } = window.jspdf;
+
+  // A4 en puntos: 595 x 842. Usamos orientación portrait.
+  // El canvas tiene ancho fijo → calculamos la escala para que quepa en A4.
+  const A4W = 595, A4H = 842;
+  const MARGIN = 20;
+  const usableW = A4W - MARGIN * 2;
+  const scale = usableW / imgCanvas.width;         // escala para encajar el ancho
+  const scaledH = imgCanvas.height * scale;         // altura total escalada en pts
+
   const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
+  const usableH = A4H - MARGIN * 2;
 
-  const PW = 595, PH = 842;
-  const M = 28;           // margen
-  const GAP = 10;          // espacio entre tarjetas
-  const COL = 2;
-  const CARDW = (PW - M*2 - GAP) / COL;
+  // Número de páginas necesarias
+  const pages = Math.ceil(scaledH / usableH);
 
-  // ── ENCABEZADO ──
-  // Fondo degradado simulado con rectángulos
-  doc.setFillColor(7, 8, 15);
-  doc.rect(0, 0, PW, 72, 'F');
-  // Línea de acento
-  doc.setFillColor(79, 195, 195);
-  doc.rect(M, 68, 120, 2, 'F');
-  doc.setFillColor(124, 111, 212);
-  doc.rect(M + 120, 68, 60, 2, 'F');
-  // Nombre del fármaco
-  doc.setTextColor(79, 195, 195);
-  doc.setFontSize(26);
-  doc.setFont('helvetica', 'bold');
-  doc.text(data.nombre || 'Medicamento', M, 32);
-  // Familia
-  doc.setTextColor(136, 146, 176);
-  doc.setFontSize(10);
-  doc.setFont('helvetica', 'normal');
-  doc.text(data.familia || '', M, 48);
-  // Marca
-  doc.setTextColor(60, 70, 90);
-  doc.setFontSize(8);
-  doc.text('PharmaChem  ·  Groq + Llama 4  ·  pharmapp', M, 62);
+  for (let p = 0; p < pages; p++) {
+    if (p > 0) doc.addPage();
 
-  let y = 82;
-  let col = 0;
+    // Porción del canvas que va en esta página
+    const srcY  = Math.round((p * usableH) / scale);
+    const srcH  = Math.round(Math.min(usableH / scale, imgCanvas.height - srcY));
 
-  const cards = data.cards || [];
+    // Recortar esa porción en un canvas temporal
+    const slice = document.createElement('canvas');
+    slice.width  = imgCanvas.width;
+    slice.height = srcH;
+    const sctx = slice.getContext('2d');
+    sctx.drawImage(imgCanvas, 0, -srcY);
 
-  for (let i = 0; i < cards.length; i++) {
-    const card = cards[i];
-    const color = CARD_COLORS[card.color] || CARD_COLORS.teal;
-    const label = CARD_LABELS[card.titulo] || card.titulo.toUpperCase();
+    const sliceData = slice.toDataURL('image/jpeg', 0.92);
+    const sliceH = srcH * scale;
 
-    // Calcular altura necesaria
-    doc.setFontSize(8);
-    const bodyLines = doc.splitTextToSize(card.contenido || '', CARDW - 22);
-    let notaLines = [];
-    if (card.enApuntes && card.notaApuntes) {
-      doc.setFontSize(7.5);
-      notaLines = doc.splitTextToSize('Tus apuntes: ' + card.notaApuntes, CARDW - 28);
-    }
+    // Fondo negro para la página
+    doc.setFillColor(7, 8, 15);
+    doc.rect(0, 0, A4W, A4H, 'F');
 
-    const LINESPH_BODY = 11;
-    const LINESPH_NOTA = 10;
-    const headerH = 30;
-    const bodyH  = bodyLines.length * LINESPH_BODY;
-    const notaH  = notaLines.length > 0 ? notaLines.length * LINESPH_NOTA + 16 : 0;
-    const CARDH  = headerH + bodyH + notaH + 16;
-
-    const cx = M + col * (CARDW + GAP);
-
-    // Nueva página si no cabe
-    if (y + CARDH > PH - M) {
-      doc.addPage();
-      // Repetir mini-header
-      doc.setFillColor(7, 8, 15);
-      doc.rect(0, 0, PW, 28, 'F');
-      doc.setTextColor(79, 195, 195);
-      doc.setFontSize(10);
-      doc.setFont('helvetica', 'bold');
-      doc.text(data.nombre || '', M, 18);
-      doc.setTextColor(60, 70, 90);
-      doc.setFontSize(7);
-      doc.setFont('helvetica', 'normal');
-      doc.text('PharmaChem', PW - M - 55, 18);
-      y = 36;
-      col = 0;
-    }
-
-    // ── FONDO TARJETA ──
-    doc.setFillColor(19, 22, 40);
-    // Esquinas redondeadas manuales (roundedRect a veces falla en algunos viewers)
-    doc.roundedRect(cx, y, CARDW, CARDH, 6, 6, 'F');
-
-    // ── BORDE SUPERIOR DE COLOR ──
-    doc.setFillColor(color.r, color.g, color.b);
-    doc.roundedRect(cx, y, CARDW, 4, 2, 2, 'F');
-    doc.rect(cx, y + 2, CARDW, 2, 'F'); // rellenar esquinas inferiores del borde
-
-    // ── CÍRCULO DE COLOR (reemplaza emoji) ──
-    doc.setFillColor(color.r, color.g, color.b, 0.2);
-    doc.circle(cx + 18, y + 18, 9, 'F');
-    doc.setFillColor(color.r, color.g, color.b);
-    doc.circle(cx + 18, y + 18, 5, 'F');
-
-    // ── TÍTULO ──
-    doc.setTextColor(color.r, color.g, color.b);
-    doc.setFontSize(9);
-    doc.setFont('helvetica', 'bold');
-    doc.text(label, cx + 32, y + 21);
-
-    // ── SEPARADOR ──
-    doc.setDrawColor(color.r, color.g, color.b, 0.3);
-    doc.setLineWidth(0.5);
-    doc.line(cx + 10, y + headerH - 2, cx + CARDW - 10, y + headerH - 2);
-
-    // ── CONTENIDO ──
-    doc.setTextColor(200, 210, 235);
-    doc.setFontSize(8);
-    doc.setFont('helvetica', 'normal');
-    doc.text(bodyLines, cx + 12, y + headerH + 9, { lineHeightFactor: 1.4 });
-
-    // ── NOTA APUNTES ──
-    if (notaLines.length > 0) {
-      const notaY = y + headerH + bodyH + 14;
-      // Fondo nota
-      doc.setFillColor(40, 35, 15);
-      doc.roundedRect(cx + 10, notaY - 6, CARDW - 20, notaLines.length * LINESPH_NOTA + 10, 3, 3, 'F');
-      // Barra izquierda
-      doc.setFillColor(201, 168, 76);
-      doc.rect(cx + 10, notaY - 6, 3, notaLines.length * LINESPH_NOTA + 10, 'F');
-      // Texto
-      doc.setTextColor(201, 168, 76);
-      doc.setFontSize(7.5);
-      doc.text(notaLines, cx + 17, notaY + 2, { lineHeightFactor: 1.35 });
-    }
-
-    // Siguiente posición
-    col++;
-    if (col >= COL) {
-      col = 0;
-      y += CARDH + GAP;
-    }
+    doc.addImage(sliceData, 'JPEG', MARGIN, MARGIN, usableW, sliceH);
   }
-
-  // Si quedó en columna impar, bajar y
-  // (ya no necesitamos hacer nada extra)
 
   doc.save(`${(data.nombre || 'flashcards').replace(/\s+/g,'_')}_farmacologia.pdf`);
   toast('✅ PDF descargado', 'ok');
 }
 
 // ══════════════════════════════════════════════
-// DESCARGAR IMAGEN — dibujado 100% en Canvas
+// FUNCIÓN COMPARTIDA: construye el canvas con las flashcards
 // ══════════════════════════════════════════════
-async function downloadFlashcardsImage() {
-  const data = S.currentFlashcardData;
-  if (!data?.cards?.length) { toast('⚠ No hay flashcards para descargar', 'warn'); return; }
-
-  toast('⏳ Generando imagen...', 'normal', 8000);
-
+async function buildFlashcardsCanvas(data) {
   const cards = data.cards || [];
-  const SCALE = 2;         // resolución 2x
+  const SCALE = 2;
   const M = 40 * SCALE;
   const GAP = 16 * SCALE;
   const COLS = 2;
-  const CW = 380 * SCALE;  // ancho de cada tarjeta
+  const CW = 380 * SCALE;
   const TOTAL_W = M * 2 + CW * COLS + GAP;
   const HEADER_H = 100 * SCALE;
   const CARD_PAD = 20 * SCALE;
@@ -811,7 +714,6 @@ async function downloadFlashcardsImage() {
   const canvas = document.createElement('canvas');
   const ctx = canvas.getContext('2d');
 
-  // Pre-calcular alturas de tarjetas
   ctx.font = `${FONT_BODY}px -apple-system, Segoe UI, sans-serif`;
   function wrapText(text, maxW) {
     const words = (text || '').split(' ');
@@ -830,179 +732,145 @@ async function downloadFlashcardsImage() {
     const notaLines = card.enApuntes && card.notaApuntes
       ? wrapText('Tus apuntes: ' + card.notaApuntes, CW - CARD_PAD * 2 - 12 * SCALE)
       : [];
-    const TITLE_H  = 48 * SCALE;
-    const BODY_H   = bodyLines.length * LINE_H + CARD_PAD;
-    const NOTA_H   = notaLines.length > 0 ? notaLines.length * (LINE_H * 0.9) + 28 * SCALE : 0;
-    const totalH   = TITLE_H + BODY_H + NOTA_H + CARD_PAD;
+    const TITLE_H = 48 * SCALE;
+    const BODY_H  = bodyLines.length * LINE_H + CARD_PAD;
+    const NOTA_H  = notaLines.length > 0 ? notaLines.length * (LINE_H * 0.9) + 28 * SCALE : 0;
+    const totalH  = TITLE_H + BODY_H + NOTA_H + CARD_PAD;
     return { card, bodyLines, notaLines, totalH };
   });
 
-  // Calcular altura total del canvas
-  let totalH = HEADER_H + GAP;
-  let rowH = 0; let col = 0;
-  for (const m of cardMetas) {
-    if (m.totalH > rowH) rowH = m.totalH;
-    col++;
-    if (col >= COLS) { totalH += rowH + GAP; rowH = 0; col = 0; }
+  // Calcular alturas por fila (cada fila usa la tarjeta más alta)
+  const rowHeights = [];
+  for (let i = 0; i < cardMetas.length; i += COLS) {
+    const pair = cardMetas.slice(i, i + COLS);
+    rowHeights.push(Math.max(...pair.map(m => m.totalH)));
   }
-  if (col > 0) totalH += rowH + GAP;
+
+  let totalH = HEADER_H + GAP;
+  for (const rh of rowHeights) totalH += rh + GAP;
   totalH += M;
 
   canvas.width  = TOTAL_W;
   canvas.height = totalH;
 
-  // ── FONDO GENERAL ──
+  // FONDO
   ctx.fillStyle = '#07080f';
   ctx.fillRect(0, 0, canvas.width, canvas.height);
 
-  // ── ENCABEZADO ──
+  // ENCABEZADO
   ctx.fillStyle = '#0d1020';
   ctx.fillRect(0, 0, canvas.width, HEADER_H);
-
-  // Línea de acento
   const grad = ctx.createLinearGradient(M, 0, M + 300 * SCALE, 0);
   grad.addColorStop(0, '#4fc3c3');
   grad.addColorStop(1, '#7c6fd4');
   ctx.fillStyle = grad;
   ctx.fillRect(M, HEADER_H - 3, 300 * SCALE, 3);
-
-  // Nombre
   ctx.fillStyle = '#4fc3c3';
   ctx.font = `bold ${28 * SCALE}px Georgia, serif`;
   ctx.fillText(data.nombre || 'Medicamento', M, 38 * SCALE);
-  // Familia
   ctx.fillStyle = '#8892b0';
   ctx.font = `${11 * SCALE}px -apple-system, Segoe UI, sans-serif`;
   ctx.fillText(data.familia || '', M, 58 * SCALE);
-  // Marca
   ctx.fillStyle = '#3a4560';
   ctx.font = `${9 * SCALE}px monospace`;
   ctx.fillText('PharmaChem  ·  Groq + Llama 4', M, 78 * SCALE);
 
-  // ── TARJETAS ──
-  const COLORS = {
-    teal:   '#4fc3c3', purple: '#7c6fd4', gold: '#c9a84c', red: '#ef5350'
-  };
+  const COLORS = { teal:'#4fc3c3', purple:'#7c6fd4', gold:'#c9a84c', red:'#ef5350' };
 
   function roundRect(x, y, w, h, r) {
     ctx.beginPath();
-    ctx.moveTo(x + r, y);
-    ctx.lineTo(x + w - r, y);
-    ctx.quadraticCurveTo(x + w, y, x + w, y + r);
-    ctx.lineTo(x + w, y + h - r);
-    ctx.quadraticCurveTo(x + w, y + h, x + w - r, y + h);
-    ctx.lineTo(x + r, y + h);
-    ctx.quadraticCurveTo(x, y + h, x, y + h - r);
-    ctx.lineTo(x, y + r);
-    ctx.quadraticCurveTo(x, y, x + r, y);
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+    ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);
+    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);
+    ctx.quadraticCurveTo(x,y,x+r,y);
     ctx.closePath();
   }
 
-  let cy = HEADER_H + GAP;
-  col = 0; rowH = 0;
-  const rowStartY = [cy];
-  const rowHeights = [];
-
-  // Calcular alturas por fila
-  let tmpRowH = 0; let tmpCol = 0;
-  for (const m of cardMetas) {
-    if (m.totalH > tmpRowH) tmpRowH = m.totalH;
-    tmpCol++;
-    if (tmpCol >= COLS) { rowHeights.push(tmpRowH); tmpRowH = 0; tmpCol = 0; }
-  }
-  if (tmpCol > 0) rowHeights.push(tmpRowH);
-
-  let row = 0; col = 0;
   let cardY = HEADER_H + GAP;
 
-  for (let i = 0; i < cardMetas.length; i++) {
-    const { card, bodyLines, notaLines, totalH: cardH } = cardMetas[i];
-    const rowMaxH = rowHeights[row] || cardH;
-    const cx = M + col * (CW + GAP);
-    const color = COLORS[card.color] || COLORS.teal;
+  for (let row = 0; row < rowHeights.length; row++) {
+    const rowH = rowHeights[row];
+    for (let col = 0; col < COLS; col++) {
+      const idx = row * COLS + col;
+      if (idx >= cardMetas.length) break;
+      const { card, bodyLines, notaLines } = cardMetas[idx];
+      const color = COLORS[card.color] || COLORS.teal;
+      const cx = M + col * (CW + GAP);
 
-    // Sombra
-    ctx.shadowColor = 'rgba(0,0,0,0.5)';
-    ctx.shadowBlur = 15 * SCALE;
-    ctx.shadowOffsetY = 4 * SCALE;
-
-    // Fondo tarjeta (altura uniforme en la fila)
-    ctx.fillStyle = '#131628';
-    roundRect(cx, cardY, CW, rowMaxH, 10 * SCALE);
-    ctx.fill();
-
-    ctx.shadowColor = 'transparent';
-    ctx.shadowBlur = 0;
-
-    // Borde superior de color
-    ctx.fillStyle = color;
-    roundRect(cx, cardY, CW, 5 * SCALE, 3 * SCALE);
-    ctx.fill();
-    ctx.fillRect(cx, cardY + 2 * SCALE, CW, 3 * SCALE); // cuadrar la parte de abajo
-
-    // Círculo decorativo
-    ctx.beginPath();
-    ctx.arc(cx + 28 * SCALE, cardY + 30 * SCALE, 10 * SCALE, 0, Math.PI * 2);
-    ctx.fillStyle = color + '33';
-    ctx.fill();
-    ctx.beginPath();
-    ctx.arc(cx + 28 * SCALE, cardY + 30 * SCALE, 5 * SCALE, 0, Math.PI * 2);
-    ctx.fillStyle = color;
-    ctx.fill();
-
-    // Título
-    ctx.fillStyle = color;
-    ctx.font = `bold ${FONT_TITLE}px -apple-system, Segoe UI, sans-serif`;
-    const label = CARD_LABELS[card.titulo] || card.titulo.toUpperCase();
-    ctx.fillText(label, cx + 46 * SCALE, cardY + 35 * SCALE);
-
-    // Separador
-    ctx.strokeStyle = color + '44';
-    ctx.lineWidth = 1 * SCALE;
-    ctx.beginPath();
-    ctx.moveTo(cx + CARD_PAD, cardY + 48 * SCALE);
-    ctx.lineTo(cx + CW - CARD_PAD, cardY + 48 * SCALE);
-    ctx.stroke();
-
-    // Contenido
-    ctx.fillStyle = '#c8d5f0';
-    ctx.font = `${FONT_BODY}px -apple-system, Segoe UI, sans-serif`;
-    let textY = cardY + 64 * SCALE;
-    for (const line of bodyLines) {
-      ctx.fillText(line, cx + CARD_PAD, textY);
-      textY += LINE_H;
-    }
-
-    // Nota apuntes
-    if (notaLines.length > 0) {
-      const notaY = textY + 8 * SCALE;
-      const notaH2 = notaLines.length * (LINE_H * 0.9) + 20 * SCALE;
-      // Fondo nota
-      ctx.fillStyle = '#281f08';
-      roundRect(cx + CARD_PAD, notaY, CW - CARD_PAD * 2, notaH2, 5 * SCALE);
+      // Sombra
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 15 * SCALE;
+      ctx.shadowOffsetY = 4 * SCALE;
+      ctx.fillStyle = '#131628';
+      roundRect(cx, cardY, CW, rowH, 10 * SCALE);
       ctx.fill();
-      // Barra izquierda
-      ctx.fillStyle = '#c9a84c';
-      ctx.fillRect(cx + CARD_PAD, notaY, 4 * SCALE, notaH2);
-      // Texto nota
-      ctx.fillStyle = '#c9a84c';
-      ctx.font = `${8.5 * SCALE}px -apple-system, Segoe UI, sans-serif`;
-      let ny = notaY + 14 * SCALE;
-      for (const nl of notaLines) {
-        ctx.fillText(nl, cx + CARD_PAD + 12 * SCALE, ny);
-        ny += LINE_H * 0.9;
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+
+      // Borde color arriba
+      ctx.fillStyle = color;
+      roundRect(cx, cardY, CW, 5 * SCALE, 3 * SCALE);
+      ctx.fill();
+      ctx.fillRect(cx, cardY + 2*SCALE, CW, 3*SCALE);
+
+      // Círculo
+      ctx.beginPath();
+      ctx.arc(cx+28*SCALE, cardY+30*SCALE, 10*SCALE, 0, Math.PI*2);
+      ctx.fillStyle = color+'33'; ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx+28*SCALE, cardY+30*SCALE, 5*SCALE, 0, Math.PI*2);
+      ctx.fillStyle = color; ctx.fill();
+
+      // Título
+      ctx.fillStyle = color;
+      ctx.font = `bold ${FONT_TITLE}px -apple-system, Segoe UI, sans-serif`;
+      const label = CARD_LABELS[card.titulo] || card.titulo.toUpperCase();
+      ctx.fillText(label, cx+46*SCALE, cardY+35*SCALE);
+
+      // Separador
+      ctx.strokeStyle = color+'44'; ctx.lineWidth = 1*SCALE;
+      ctx.beginPath();
+      ctx.moveTo(cx+CARD_PAD, cardY+48*SCALE);
+      ctx.lineTo(cx+CW-CARD_PAD, cardY+48*SCALE);
+      ctx.stroke();
+
+      // Texto
+      ctx.fillStyle = '#c8d5f0';
+      ctx.font = `${FONT_BODY}px -apple-system, Segoe UI, sans-serif`;
+      let textY = cardY + 64*SCALE;
+      for (const line of bodyLines) { ctx.fillText(line, cx+CARD_PAD, textY); textY += LINE_H; }
+
+      // Nota apuntes
+      if (notaLines.length > 0) {
+        const notaY = textY + 8*SCALE;
+        const notaH = notaLines.length*(LINE_H*0.9) + 20*SCALE;
+        ctx.fillStyle = '#281f08';
+        roundRect(cx+CARD_PAD, notaY, CW-CARD_PAD*2, notaH, 5*SCALE); ctx.fill();
+        ctx.fillStyle = '#c9a84c';
+        ctx.fillRect(cx+CARD_PAD, notaY, 4*SCALE, notaH);
+        ctx.fillStyle = '#c9a84c';
+        ctx.font = `${8.5*SCALE}px -apple-system, Segoe UI, sans-serif`;
+        let ny = notaY + 14*SCALE;
+        for (const nl of notaLines) { ctx.fillText(nl, cx+CARD_PAD+12*SCALE, ny); ny += LINE_H*0.9; }
       }
     }
-
-    col++;
-    if (col >= COLS) {
-      col = 0;
-      cardY += rowMaxH + GAP;
-      row++;
-    }
+    cardY += rowH + GAP;
   }
 
-  // ── DESCARGAR ──
+  return canvas;
+}
+
+// ══════════════════════════════════════════════
+// DESCARGAR IMAGEN
+// ══════════════════════════════════════════════
+async function downloadFlashcardsImage() {
+  const data = S.currentFlashcardData;
+  if (!data?.cards?.length) { toast('⚠ No hay flashcards para descargar', 'warn'); return; }
+  toast('⏳ Generando imagen...', 'normal', 8000);
+  const canvas = await buildFlashcardsCanvas(data);
   const link = document.createElement('a');
   link.download = `${(data.nombre || 'flashcards').replace(/\s+/g,'_')}_farmacologia.png`;
   link.href = canvas.toDataURL('image/png');
