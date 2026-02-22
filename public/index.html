@@ -568,10 +568,7 @@ function renderFlashcards(data) {
         <h2 style="font-family:'Playfair Display',serif;font-size:1.9rem;margin-bottom:.2rem">${data.nombre || 'Medicamento'}</h2>
         <span style="font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text-dim)">${data.familia || ''}</span>
       </div>
-      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-        <button class="btn btn-secondary" onclick="downloadFlashcardsPDF()" title="Descargar como PDF">
-          📄 Descargar PDF
-        </button>
+      <div>
         <button class="btn btn-secondary" onclick="downloadFlashcardsImage()" title="Descargar como imagen">
           🖼 Descargar Imagen
         </button>
@@ -634,65 +631,6 @@ const CARD_LABELS = {
   'Dosis y Presentaciones':    'DOSIS'
 };
 
-// ══════════════════════════════════════════════
-// DESCARGAR PDF — renderiza igual que la imagen, embebe en PDF
-// ══════════════════════════════════════════════
-async function downloadFlashcardsPDF() {
-  const data = S.currentFlashcardData;
-  if (!data?.cards?.length) { toast('⚠ No hay flashcards para descargar', 'warn'); return; }
-
-  toast('⏳ Generando PDF...', 'normal', 10000);
-
-  // Cargar jsPDF
-  if (!window.jspdf) await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
-
-  // 1) Generar el canvas exactamente igual que la imagen
-  const imgCanvas = await buildFlashcardsCanvas(data);
-
-  // 2) El canvas puede ser muy alto — dividirlo en páginas A4
-  const { jsPDF } = window.jspdf;
-
-  // A4 en puntos: 595 x 842. Usamos orientación portrait.
-  // El canvas tiene ancho fijo → calculamos la escala para que quepa en A4.
-  const A4W = 595, A4H = 842;
-  const MARGIN = 20;
-  const usableW = A4W - MARGIN * 2;
-  const scale = usableW / imgCanvas.width;         // escala para encajar el ancho
-  const scaledH = imgCanvas.height * scale;         // altura total escalada en pts
-
-  const doc = new jsPDF({ orientation: 'portrait', unit: 'pt', format: 'a4' });
-  const usableH = A4H - MARGIN * 2;
-
-  // Número de páginas necesarias
-  const pages = Math.ceil(scaledH / usableH);
-
-  for (let p = 0; p < pages; p++) {
-    if (p > 0) doc.addPage();
-
-    // Porción del canvas que va en esta página
-    const srcY  = Math.round((p * usableH) / scale);
-    const srcH  = Math.round(Math.min(usableH / scale, imgCanvas.height - srcY));
-
-    // Recortar esa porción en un canvas temporal
-    const slice = document.createElement('canvas');
-    slice.width  = imgCanvas.width;
-    slice.height = srcH;
-    const sctx = slice.getContext('2d');
-    sctx.drawImage(imgCanvas, 0, -srcY);
-
-    const sliceData = slice.toDataURL('image/jpeg', 0.92);
-    const sliceH = srcH * scale;
-
-    // Fondo negro para la página
-    doc.setFillColor(7, 8, 15);
-    doc.rect(0, 0, A4W, A4H, 'F');
-
-    doc.addImage(sliceData, 'JPEG', MARGIN, MARGIN, usableW, sliceH);
-  }
-
-  doc.save(`${(data.nombre || 'flashcards').replace(/\s+/g,'_')}_farmacologia.pdf`);
-  toast('✅ PDF descargado', 'ok');
-}
 
 // ══════════════════════════════════════════════
 // FUNCIÓN COMPARTIDA: construye el canvas con las flashcards
