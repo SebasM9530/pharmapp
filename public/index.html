@@ -166,14 +166,14 @@
 <!-- APUNTES -->
 <div class="page active" id="page-apuntes">
   <h1 class="section-title">📁 Mis Apuntes</h1>
-  <p class="section-sub">Sube PDFs o TXT — Groq los analiza y enriquece tus flashcards</p>
+  <p class="section-sub">Sube PDFs escaneados, fotos de cuaderno o TXT — OCR automático con IA</p>
 
   <div class="card">
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="fileInput" multiple accept=".pdf,.txt,image/*">
       <div class="upload-icon">🧬</div>
       <p><strong>Arrastra archivos aquí</strong> o haz clic para seleccionar</p>
-      <p style="margin-top:.3rem;font-size:.82rem">PDF con texto · TXT · Fotos de cuaderno</p>
+      <p style="margin-top:.3rem;font-size:.82rem">PDF (digital o escaneado con OCR ✨) · Fotos JPG/PNG · TXT</p>
     </div>
     <div class="progress-wrap" id="progressWrap">
       <div class="progress-bar"><div class="progress-fill" id="progressFill"></div></div>
@@ -334,12 +334,8 @@ async function handleFiles(files) {
     if(f.type === 'application/pdf') {
       await uploadPDF(f, id);
     } else if(f.type.startsWith('image/')) {
-      // Imágenes: guardar visualmente, notificar que no extrae texto
-      const url = await readAsDataURL(f);
-      S.apuntes.push({ id, name: f.name, type:'image', url });
-      saveApuntes();
-      renderApuntesList();
-      toast(`📸 Imagen guardada: ${f.name}. El contexto textual se usa en flashcards.`, 'ok');
+      // Imágenes: enviar al servidor para OCR con Groq Vision
+      await uploadImage(f, id);
     } else {
       // TXT u otro texto
       await uploadText(f, id);
@@ -348,35 +344,106 @@ async function handleFiles(files) {
 }
 
 async function uploadPDF(file, id) {
-  setProgress(10, `Enviando ${file.name} al servidor...`);
-  toast(`⏳ Procesando ${file.name}...`);
-
+  toast(`⏳ Convirtiendo páginas de ${file.name}...`);
+  setProgress(5, 'Cargando PDF...');
   try {
-    const formData = new FormData();
-    formData.append('file', file); // ← campo "file" que espera multer
+    // 1) Cargar pdf.js desde CDN
+    if (!window.pdfjsLib) {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement('script');
+        s.src = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js';
+        s.onload = resolve; s.onerror = reject;
+        document.head.appendChild(s);
+      });
+      window.pdfjsLib.GlobalWorkerOptions.workerSrc =
+        'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+    }
 
-    setProgress(30, 'Extrayendo texto del PDF...');
-    const res = await fetch('/api/upload', { method: 'POST', body: formData });
-    setProgress(70, 'Groq analizando contenido...');
+    // 2) Leer el archivo como ArrayBuffer
+    const arrayBuffer = await file.arrayBuffer();
+    const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+    const totalPages = Math.min(pdf.numPages, 9);
+    const pages = [];
 
+    // 3) Renderizar cada página a canvas → JPEG base64
+    for (let i = 1; i <= totalPages; i++) {
+      setProgress(Math.round(5 + (i / totalPages) * 50),
+        `Renderizando página ${i}/${totalPages}...`);
+
+      const page = await pdf.getPage(i);
+
+      // Intentar texto digital primero (PDF no escaneado)
+      const tc = await page.getTextContent();
+      const txt = tc.items.map(it => it.str).join(' ').trim();
+      if (txt.length > 80) {
+        pages.push({ type: 'text', content: txt, pageNum: i });
+        continue;
+      }
+
+      // Escaneado → renderizar a imagen
+      const viewport = page.getViewport({ scale: 1.8 });
+      const canvas = document.createElement('canvas');
+      canvas.width  = viewport.width;
+      canvas.height = viewport.height;
+      await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      // Convertir a JPEG para reducir tamaño
+      const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+      pages.push({ base64, mime: 'image/jpeg', pageNum: i });
+    }
+
+    setProgress(60, 'Enviando a Groq Vision para OCR...');
+
+    // 4) Mandar todas las páginas al servidor
+    const res = await fetch('/api/upload-pages', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ pages, filename: file.name })
+    });
+    setProgress(90, 'Generando resumen...');
     const data = await res.json();
-    if(!res.ok) throw new Error(data.error || `Error ${res.status}`);
+    if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
 
     setProgress(100, '¡Listo!');
-    setTimeout(() => setProgress(null), 800);
+    setTimeout(() => setProgress(null), 1000);
 
     S.apuntes.push({ id, name: file.name, type: 'pdf', chars: data.charCount });
-    saveApuntes();
-    renderApuntesList();
+    saveApuntes(); renderApuntesList();
     appendResumen(data.resumen);
-    toast(`✅ PDF procesado: ${file.name} (${(data.charCount/1000).toFixed(1)}k chars)`, 'ok', 5000);
+    toast(`✅ ${file.name} procesado (${totalPages} páginas, OCR automático)`, 'ok', 6000);
 
   } catch(err) {
     setProgress(null);
     const msg = err.message || 'Error desconocido';
-    document.getElementById('apuntesResumen').innerHTML += `<div class="err-box">❌ Error con "${file.name}": ${msg}</div>`;
-    toast(`❌ ${msg}`, 'warn', 7000);
+    document.getElementById('apuntesResumen').innerHTML +=
+      `<div class="err-box">❌ Error con "${file.name}": ${msg}</div>`;
+    toast(`❌ ${msg}`, 'warn', 8000);
     console.error('uploadPDF error:', err);
+  }
+}
+
+async function uploadImage(file, id) {
+  setProgress(10, `Enviando imagen ${file.name} para OCR...`);
+  toast(`🔍 Leyendo imagen con IA: ${file.name}...`);
+  try {
+    const formData = new FormData();
+    formData.append('file', file);
+    setProgress(40, 'Groq Vision leyendo el texto de la imagen...');
+    const res = await fetch('/api/upload-image', { method: 'POST', body: formData });
+    setProgress(80, 'Generando resumen...');
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || `Error ${res.status}`);
+    setProgress(100, '¡Listo!');
+    setTimeout(() => setProgress(null), 800);
+    // Preview visual
+    const url = await readAsDataURL(file);
+    S.apuntes.push({ id, name: file.name, type: 'image', url, chars: data.charCount });
+    saveApuntes(); renderApuntesList();
+    appendResumen(data.resumen);
+    toast(`✅ Imagen procesada con OCR: ${file.name}`, 'ok', 5000);
+  } catch(err) {
+    setProgress(null);
+    document.getElementById('apuntesResumen').innerHTML += `<div class="err-box">❌ Error OCR "${file.name}": ${err.message}</div>`;
+    toast(`❌ ${err.message}`, 'warn', 7000);
   }
 }
 

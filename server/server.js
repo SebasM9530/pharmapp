@@ -6,292 +6,279 @@ import path from "path";
 import { fileURLToPath } from "url";
 import fs from "fs";
 import axios from "axios";
-import { createRequire } from "module";
-
-// ── Fix definitivo pdf-parse con ES Modules ──
-// pdf-parse@1.1.1 exporta la función directamente, hay que importarla así:
-const require = createRequire(import.meta.url);
-const pdfParseRaw = require("pdf-parse");
-const pdfParse = pdfParseRaw.default ?? pdfParseRaw;
 
 dotenv.config();
-
 const __filename = fileURLToPath(import.meta.url);
 const __dirname  = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "10mb" }));
+app.use(express.json({ limit: "60mb" }));  // grande para recibir imágenes base64
 app.use(express.static(path.join(__dirname, "../public")));
-app.get("/", (req, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
+app.get("/", (_, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
 
-// ── MODELO: llama-4-scout (más tokens/día, más rápido) ──
-const GROQ_MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
-
-// ── STORAGE RAG ──
+const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 let globalChunks = [];
 
-// ── MULTER ──
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    const dir = path.join(__dirname, "../uploads");
-    if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-    cb(null, dir);
-  },
-  filename: (req, file, cb) => cb(null, Date.now() + "-" + file.originalname)
+// ── multer solo para imágenes directas ──
+const upload = multer({
+  storage: multer.diskStorage({
+    destination: (_, __, cb) => {
+      const d = path.join(__dirname, "../uploads");
+      if (!fs.existsSync(d)) fs.mkdirSync(d, { recursive: true });
+      cb(null, d);
+    },
+    filename: (_, f, cb) => cb(null, Date.now() + "-" + f.originalname)
+  }),
+  limits: { fileSize: 25 * 1024 * 1024 }
 });
-const upload = multer({ storage, limits: { fileSize: 20 * 1024 * 1024 } });
 
-// ── HELPERS ──
-function chunkText(text, size = 800) {
-  const words = text.split(/\s+/);
-  const chunks = [];
-  for (let i = 0; i < words.length; i += size)
-    chunks.push(words.slice(i, i + size).join(" "));
-  return chunks;
+function chunk(text, size = 700) {
+  const w = text.split(/\s+/);
+  const out = [];
+  for (let i = 0; i < w.length; i += size) out.push(w.slice(i, i + size).join(" "));
+  return out;
 }
 
-function findRelevantChunks(query, chunks, max = 4) {
-  const terms = query.toLowerCase().split(/\s+/).filter(t => t.length > 3);
+function relevantChunks(q, chunks, max = 4) {
+  const terms = q.toLowerCase().split(/\s+/).filter(t => t.length > 3);
   if (!terms.length || !chunks.length) return [];
   return chunks
-    .map(c => ({
-      c,
-      s: terms.reduce((acc, t) => acc + (c.toLowerCase().match(new RegExp(t, "g")) || []).length, 0)
-    }))
-    .filter(x => x.s > 0)
-    .sort((a, b) => b.s - a.s)
-    .slice(0, max)
-    .map(x => x.c);
+    .map(c => ({ c, s: terms.reduce((a, t) => a + (c.toLowerCase().match(new RegExp(t, "g")) || []).length, 0) }))
+    .filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, max).map(x => x.c);
 }
 
-// ── GROQ ──
-async function callGroq(system, user, temperature = 0.4) {
-  const res = await axios.post(
-    "https://api.groq.com/openai/v1/chat/completions",
-    {
-      model: GROQ_MODEL,
-      messages: [
-        { role: "system", content: system },
-        { role: "user",   content: user }
-      ],
-      temperature,
-      max_tokens: 4096
-    },
-    {
-      headers: {
-        Authorization: `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json"
-      },
-      timeout: 60000
-    }
-  );
-  return res.data.choices[0].message.content;
+async function groq(system, user, temp = 0.35) {
+  const r = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
+    model: MODEL,
+    messages: [{ role: "system", content: system }, { role: "user", content: user }],
+    temperature: temp, max_tokens: 4096
+  }, {
+    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+    timeout: 90000
+  });
+  return r.data.choices[0].message.content;
 }
 
-// ═══════════════════════════════════
-// ENDPOINTS
-// ═══════════════════════════════════
+async function groqVision(base64, mime, prompt) {
+  const r = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
+    model: MODEL,
+    messages: [{
+      role: "user", content: [
+        { type: "image_url", image_url: { url: `data:${mime};base64,${base64}` } },
+        { type: "text", text: prompt }
+      ]
+    }],
+    temperature: 0.1, max_tokens: 4096
+  }, {
+    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+    timeout: 90000
+  });
+  return r.data.choices[0].message.content;
+}
 
-app.get("/api/health", (req, res) => res.json({ ok: true, model: GROQ_MODEL }));
+// ─────────────────────────────────────────────
+// ENDPOINT: recibe páginas ya convertidas a imagen por el frontend
+// body: { pages: [{base64, mime, pageNum}], filename }
+// ─────────────────────────────────────────────
+app.post("/api/upload-pages", async (req, res) => {
+  const { pages, filename } = req.body;
+  if (!pages?.length) return res.status(400).json({ error: "No se recibieron páginas." });
+  console.log(`📥 upload-pages: ${pages.length} págs de "${filename}"`);
 
-// ── Subir PDF ──
-app.post("/api/upload", upload.single("file"), async (req, res) => {
-  console.log("📥 /api/upload →", req.file?.originalname ?? "sin archivo");
   try {
-    if (!req.file) {
-      return res.status(400).json({ error: "No se recibió archivo." });
+    let allText = "";
+    for (const p of pages) {
+      console.log(`  OCR pág ${p.pageNum}...`);
+      const txt = await groqVision(p.base64, p.mime,
+        `Eres experto en OCR de apuntes médicos en español.
+Transcribe TODO el texto visible en esta imagen de apuntes universitarios de farmacología.
+Incluye: nombres de fármacos, mecanismos de acción, indicaciones, contraindicaciones, RAM, dosis, clasificaciones, flechas explicativas, tablas, notas al margen.
+S  fiel al texto original. No agregues información extra. Organiza por secciones si las hay.`
+      );
+      allText += `\n--- Página ${p.pageNum} ---\n${txt}\n`;
+      console.log(`  pág ${p.pageNum} OK: ${txt.length} chars`);
     }
 
-    const filePath = req.file.path;
-    const buffer   = fs.readFileSync(filePath);
-    fs.unlinkSync(filePath);
-
-    // ── Extraer texto con pdf-parse ──
-    let text = "";
-    try {
-      const parsed = await pdfParse(buffer);
-      text = parsed.text ?? "";
-      console.log(`   ✅ pdf-parse OK: ${text.length} chars, ${parsed.numpages} páginas`);
-    } catch (parseErr) {
-      console.error("   ❌ pdf-parse falló:", parseErr.message);
-      return res.status(400).json({
-        error: "No se pudo leer el PDF. Si es un PDF escaneado (imagen), súbelo como foto JPG/PNG directamente."
-      });
+    if (allText.trim().length < 50) {
+      return res.status(400).json({ error: "No se pudo extraer texto de las páginas." });
     }
 
-    if (!text || text.trim().length < 50) {
-      return res.status(400).json({
-        error: "El PDF no contiene texto seleccionable (puede ser escaneado). Prueba subiéndolo como imagen JPG/PNG."
-      });
-    }
+    globalChunks.push(...chunk(allText, 700));
+    console.log(`  Chunks totales: ${globalChunks.length}`);
 
-    // Guardar chunks para RAG
-    const newChunks = chunkText(text, 800);
-    globalChunks.push(...newChunks);
-    console.log(`   Chunks nuevos: ${newChunks.length} | Total: ${globalChunks.length}`);
-
-    // Analizar con Groq
-    console.log(`   Enviando a Groq (${GROQ_MODEL})...`);
-    const resumen = await callGroq(
-      "Eres experto en farmacología clínica y química farmacéutica. Analizas apuntes universitarios de medicina. Respondes siempre en español.",
-      `Analiza estos apuntes de farmacología universitaria y genera un resumen estructurado.
-Usa ÚNICAMENTE estas etiquetas HTML: <h4>, <strong>, <ul>, <li>, <p>
+    const resumen = await groq(
+      "Eres experto en farmacología clínica. Analizas apuntes universitarios. Respondes en español.",
+      `Analiza estos apuntes de farmacología (transcritos de apuntes manuscritos por OCR) y genera un resumen estructurado con HTML limpio usando solo: <h4>, <strong>, <ul>, <li>, <p>
 
 APUNTES:
-${text.slice(0, 6000)}
+${allText.slice(0, 6000)}
 
-Responde con esta estructura exacta:
-<h4>💊 Medicamentos mencionados</h4>
-<ul>
-  <li><strong>NombreFármaco</strong>: indicación o contexto en que aparece</li>
-</ul>
+Estructura exacta:
+<h4>💊 Medicamentos y fármacos mencionados</h4>
+<ul><li><strong>Fármaco</strong>: contexto/uso en los apuntes</li></ul>
 
 <h4>🔬 Conceptos farmacológicos clave</h4>
-<ul>
-  <li><strong>Concepto</strong>: descripción encontrada en los apuntes</li>
-</ul>
+<ul><li><strong>Concepto</strong>: descripción de los apuntes</li></ul>
 
 <h4>📌 Puntos importantes para el examen</h4>
-<ul>
-  <li>punto clave específico extraído de los apuntes</li>
-</ul>
+<ul><li>punto específico extraído de los apuntes</li></ul>
 
-<p><strong>Páginas procesadas:</strong> todo el documento. <strong>Consejo:</strong> usa estos conceptos en el buscador de Flashcards.</p>
-
-S� específico con lo que encuentras en los apuntes. Responde en español.`
+S  específico. En español.`
     );
-    console.log("   ✅ Groq respondió OK");
 
-    res.json({
-      message: "PDF procesado correctamente",
-      charCount: text.length,
-      pages: text.split("\f").length,
-      totalChunks: globalChunks.length,
-      resumen
-    });
-
+    res.json({ resumen, charCount: allText.length, totalChunks: globalChunks.length });
   } catch (err) {
-    console.error("❌ /api/upload:", err.message);
-    res.status(500).json({ error: "Error: " + err.message });
-  }
-});
-
-// ── TXT ──
-app.post("/api/analyze-text", async (req, res) => {
-  try {
-    const { text } = req.body;
-    if (!text?.trim()) return res.status(400).json({ error: "Texto vacío" });
-
-    globalChunks.push(...chunkText(text, 800));
-    const resumen = await callGroq(
-      "Eres experto en farmacología. Respondes en español con HTML limpio.",
-      `Analiza estos apuntes. Usa <h4>, <strong>, <ul>, <li>, <p>:\n\n${text.slice(0, 6000)}\n\nIncluye: medicamentos, conceptos clave, puntos de examen.`
-    );
-    res.json({ resumen, charCount: text.length });
-  } catch (err) {
+    console.error("❌ upload-pages:", err.message);
     res.status(500).json({ error: err.message });
   }
 });
 
-// ── Limpiar ──
-app.post("/api/clear-notes", (req, res) => {
-  globalChunks = [];
-  res.json({ ok: true });
+// ─────────────────────────────────────────────
+// ENDPOINT: imagen JPG/PNG directa
+// ─────────────────────────────────────────────
+app.post("/api/upload-image", upload.single("file"), async (req, res) => {
+  if (!req.file) return res.status(400).json({ error: "No se recibió imagen." });
+  console.log(`🖼 upload-image: ${req.file.originalname}`);
+  try {
+    const buf = fs.readFileSync(req.file.path);
+    fs.unlinkSync(req.file.path);
+    const b64 = buf.toString("base64");
+    const txt = await groqVision(b64, req.file.mimetype,
+      "Transcribe TODO el texto de estos apuntes médicos/farmacológicos. Fármacos, mecanismos, dosis, RAM, indicaciones. Fiel al texto original."
+    );
+    globalChunks.push(...chunk(txt, 700));
+    const resumen = await groq(
+      "Eres experto en farmacología. Respondes en español con HTML limpio.",
+      `Analiza OCR de apuntes. Usa <h4>, <strong>, <ul>, <li>, <p>:\n\n${txt.slice(0, 5000)}\n\nMedicamentos, conceptos clave, puntos de examen.`
+    );
+    res.json({ resumen, charCount: txt.length, totalChunks: globalChunks.length });
+  } catch (err) {
+    console.error("❌ upload-image:", err.message);
+    res.status(500).json({ error: err.message });
+  }
 });
 
-// ── Flashcards ──
-app.post("/api/flashcards", async (req, res) => {
+// ─────────────────────────────────────────────
+// ENDPOINT: texto plano / TXT
+// ─────────────────────────────────────────────
+app.post("/api/analyze-text", async (req, res) => {
+  const { text } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: "Texto vacío" });
+  globalChunks.push(...chunk(text, 700));
   try {
-    const { drug } = req.body;
-    if (!drug) return res.status(400).json({ error: "Fármaco requerido" });
+    const resumen = await groq(
+      "Eres experto en farmacología. En español con HTML limpio.",
+      `Analiza apuntes con <h4>, <strong>, <ul>, <li>, <p>:\n\n${text.slice(0, 6000)}\n\nMedicamentos, conceptos, puntos de examen.`
+    );
+    res.json({ resumen, charCount: text.length });
+  } catch (err) { res.status(500).json({ error: err.message }); }
+});
 
-    const chunks = findRelevantChunks(drug, globalChunks, 4);
-    const ctx = chunks.length
-      ? `\n\nINFO DE LOS APUNTES DE LA ESTUDIANTE sobre ${drug}:\n${chunks.join("\n---\n")}`
-      : "";
+// ─────────────────────────────────────────────
+app.post("/api/clear-notes", (_, res) => { globalChunks = []; res.json({ ok: true }); });
+app.get("/api/health", (_, res) => res.json({ ok: true, model: MODEL, chunks: globalChunks.length }));
 
-    const raw = await callGroq(
-      "Eres farmacólogo clínico experto. Respondes SIEMPRE en español con JSON puro válido, sin markdown, sin texto antes ni después.",
+// ─────────────────────────────────────────────
+// FLASHCARDS
+// ─────────────────────────────────────────────
+app.post("/api/flashcards", async (req, res) => {
+  const { drug } = req.body;
+  if (!drug) return res.status(400).json({ error: "Fármaco requerido" });
+  try {
+    const chunks = relevantChunks(drug, globalChunks, 4);
+    const ctx = chunks.length ? `\n\nDe los apuntes de la estudiante:\n${chunks.join("\n---\n")}` : "";
+
+    const raw = await groq(
+      "Eres farmacólogo clínico experto. Respondes en español con JSON puro válido, sin markdown.",
       `Genera información farmacológica completa sobre: ${drug}${ctx}
 
-Responde ÚNICAMENTE con este JSON, sin texto adicional, sin \`\`\`:
+Responde ÚNICAMENTE con este JSON sin texto extra ni backticks:
 {"nombre":"nombre oficial","familia":"grupo farmacológico","cards":[
-{"titulo":"Mecanismo de Acción","icono":"⚙️","color":"teal","contenido":"mecanismo molecular, receptor o enzima diana","enApuntes":false,"notaApuntes":""},
+{"titulo":"Mecanismo de Acción","icono":"⚙️","color":"teal","contenido":"mecanismo molecular detallado","enApuntes":false,"notaApuntes":""},
 {"titulo":"Espectro / Clasificación","icono":"🔭","color":"purple","contenido":"clasificación y espectro","enApuntes":false,"notaApuntes":""},
-{"titulo":"Indicaciones Clínicas","icono":"✅","color":"gold","contenido":"usos aprobados con contexto clínico","enApuntes":false,"notaApuntes":""},
-{"titulo":"Contraindicaciones","icono":"🚫","color":"red","contenido":"absolutas y relativas más importantes","enApuntes":false,"notaApuntes":""},
-{"titulo":"Interacciones Farmacológicas","icono":"⚡","color":"purple","contenido":"interacciones clínicamente relevantes","enApuntes":false,"notaApuntes":""},
-{"titulo":"Reacciones Adversas (RAM)","icono":"⚠️","color":"gold","contenido":"efectos adversos por frecuencia e importancia","enApuntes":false,"notaApuntes":""},
-{"titulo":"Farmacocinética (ADME)","icono":"📊","color":"teal","contenido":"absorción, distribución, metabolismo (CYP si aplica), excreción, vida media","enApuntes":false,"notaApuntes":""},
-{"titulo":"Dosis y Presentaciones","icono":"💊","color":"gold","contenido":"dosis adultos habituales, vías, presentaciones","enApuntes":false,"notaApuntes":""}
+{"titulo":"Indicaciones Clínicas","icono":"✅","color":"gold","contenido":"usos aprobados","enApuntes":false,"notaApuntes":""},
+{"titulo":"Contraindicaciones","icono":"🚫","color":"red","contenido":"absolutas y relativas","enApuntes":false,"notaApuntes":""},
+{"titulo":"Interacciones Farmacológicas","icono":"⚡","color":"purple","contenido":"interacciones relevantes","enApuntes":false,"notaApuntes":""},
+{"titulo":"Reacciones Adversas (RAM)","icono":"⚠️","color":"gold","contenido":"efectos adversos","enApuntes":false,"notaApuntes":""},
+{"titulo":"Farmacocinética (ADME)","icono":"📊","color":"teal","contenido":"ADME completo","enApuntes":false,"notaApuntes":""},
+{"titulo":"Dosis y Presentaciones","icono":"💊","color":"gold","contenido":"dosis adultos y presentaciones","enApuntes":false,"notaApuntes":""}
 ]}
-Si algo coincide con apuntes: enApuntes=true y notaApuntes=qué dice la estudiante exactamente.`,
-      0.3
+Si algo coincide con apuntes: enApuntes=true, notaApuntes=texto del apunte.`, 0.3
     );
-
-    const clean = raw.replace(/```json|```/g, "").trim();
-    const m = clean.match(/\{[\s\S]*\}/);
-    if (!m) throw new Error("Respuesta no válida de la IA. Intenta de nuevo.");
+    const m = raw.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
+    if (!m) throw new Error("Respuesta no válida. Intenta de nuevo.");
     res.json(JSON.parse(m[0]));
-
   } catch (err) {
-    console.error("❌ /api/flashcards:", err.response?.data || err.message);
+    console.error("❌ flashcards:", err.response?.data || err.message);
     res.status(500).json({ error: err.response?.data?.error?.message || err.message });
   }
 });
 
-// ── Quiz ──
+// ─────────────────────────────────────────────
+// QUIZ — con auto-reparación de JSON truncado
+// ─────────────────────────────────────────────
 app.post("/api/quiz", async (req, res) => {
+  const { drugs, count = 5, difficulty = "intermedia", type = "mixto" } = req.body;
+  if (!drugs) return res.status(400).json({ error: "Medicamentos requeridos" });
+
+  // Limitar a 5 para evitar truncamiento con dificultad avanzada
+  const n = Math.min(parseInt(count) || 5, 5);
+
+  const chunks = relevantChunks(drugs, globalChunks, 2);
+  const ctx = chunks.length ? `\nApuntes relevantes:\n${chunks.join("\n").slice(0, 800)}` : "";
+
+  const diffs = {
+    basica: "básico", intermedia: "intermedio con aplicación clínica",
+    avanzada: "intermedio-avanzado con caso clínico breve"
+  };
+  const types = {
+    mixto: "variadas", mecanismo: "mecanismos de acción",
+    clinico: "casos clínicos breves", interacciones: "interacciones y RAM"
+  };
+
   try {
-    const { drugs, count = 10, difficulty = "intermedia", type = "mixto" } = req.body;
-    if (!drugs) return res.status(400).json({ error: "Medicamentos requeridos" });
+    const raw = await groq(
+      "Docente de farmacología. Respondes SOLO con JSON array válido y COMPLETO. Sin texto ni markdown.",
+      `Genera EXACTAMENTE ${n} preguntas sobre: ${drugs}
+Dificultad: ${diffs[difficulty]}. Tipo: ${types[type]}.${ctx}
 
-    const chunks = findRelevantChunks(drugs, globalChunks, 3);
-    const ctx = chunks.length
-      ? `\nApuntes de la estudiante:\n${chunks.join("\n---\n").slice(0, 1500)}`
-      : "";
+CRÍTICO: JSON debe ser COMPLETO y VÁLIDO. Opciones máximo 10 palabras.
+Sin texto antes ni después del array:
 
-    const diffMap = {
-      basica:     "básico: definiciones y conceptos directos",
-      intermedia: "intermedio: aplicación clínica y mecanismos",
-      avanzada:   "avanzado estilo MIR/USMLE: casos clínicos complejos con razonamiento diagnóstico-terapéutico"
-    };
-    const typeMap = {
-      mixto:         "variadas (mecanismo, indicaciones, RAM, interacciones, farmacocinética)",
-      mecanismo:     "mecanismos de acción y targets moleculares",
-      clinico:       "casos clínicos con presentación completa del paciente",
-      interacciones: "interacciones farmacológicas, RAM y toxicología"
-    };
+[{"pregunta":"pregunta concisa (máx 40 palabras)","fuente":"Katzung 15a Ed.","opciones":["A corta","B corta","C corta","D corta"],"respuesta":0,"explicacion":"explicación breve del mecanismo (máx 30 palabras)"}]
 
-    const raw = await callGroq(
-      "Docente experto en farmacología. Preguntas estilo MIR/USMLE. Responde ÚNICAMENTE con JSON válido sin markdown.",
-      `Genera exactamente ${count} preguntas sobre: ${drugs}
-Dificultad: ${diffMap[difficulty]}. Tipo: ${typeMap[type]}.${ctx}
-
-Responde ÚNICAMENTE con JSON array, sin texto extra, sin \`\`\`:
-[{"pregunta":"enunciado con contexto clínico completo","fuente":"Goodman & Gilman 14ª Ed. / Katzung 15ª Ed. / Rang & Dale 9ª Ed. / NEJM / Lancet","opciones":["A completa","B completa","C completa","D completa"],"respuesta":0,"explicacion":"por qué es correcta y por qué las otras no, con mecanismo"}]
-Exactamente 4 opciones, 1 correcta (0-3), español técnico.`,
-      0.5
+Cierra TODOS los corchetes y llaves. Solo el array JSON.`, 0.3
     );
 
-    const clean = raw.replace(/```json|```/g, "").trim();
+    const clean = raw.replace(/```json|```/g,"").trim();
     const m = clean.match(/\[[\s\S]*\]/);
-    if (!m) throw new Error("La IA no devolvió preguntas válidas. Intenta de nuevo.");
-    const questions = JSON.parse(m[0]);
+    if (!m) throw new Error("La IA no devolvió preguntas. Intenta de nuevo.");
+
+    let questions;
+    try {
+      questions = JSON.parse(m[0]);
+    } catch {
+      // Reparar JSON truncado
+      const partial = m[0];
+      const last = partial.lastIndexOf("},");
+      if (last > 5) {
+        questions = JSON.parse(partial.slice(0, last + 1) + "]");
+      } else {
+        throw new Error("Error de formato. Intenta de nuevo con menos preguntas.");
+      }
+    }
     if (!Array.isArray(questions) || !questions.length) throw new Error("No se generaron preguntas.");
     res.json(questions);
-
   } catch (err) {
-    console.error("❌ /api/quiz:", err.response?.data || err.message);
+    console.error("❌ quiz:", err.response?.data || err.message);
     res.status(500).json({ error: err.response?.data?.error?.message || err.message });
   }
 });
 
-// ── START ──
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
   console.log(`\n🚀 PharmaChem → http://localhost:${PORT}`);
-  console.log(`🤖 Modelo: ${GROQ_MODEL}`);
-  console.log(`🔑 Groq: ${process.env.GROQ_API_KEY ? "✅ OK" : "❌ Falta GROQ_API_KEY en .env"}\n`);
+  console.log(`🤖 ${MODEL}`);
+  console.log(`🔑 Groq: ${process.env.GROQ_API_KEY ? "✅" : "❌ falta GROQ_API_KEY"}\n`);
 });
