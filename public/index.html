@@ -218,7 +218,7 @@
         <input type="text" id="quizDrugs" placeholder="Ej: Penicilina, Ibuprofeno, Digoxina">
       </div>
       <div class="quiz-row">
-        <div><label>Número de preguntas</label><input type="number" id="quizCount" value="10" min="3" max="20"></div>
+        <div><label>Número de preguntas</label><input type="number" id="quizCount" value="10" min="3" max="20" placeholder="3-20"></div>
         <div><label>Dificultad</label>
           <select id="quizDiff">
             <option value="basica">Básica</option>
@@ -559,12 +559,25 @@ async function searchDrug() {
 
 function renderFlashcards(data) {
   const cm = { teal:'#4fc3c3', purple:'#7c6fd4', gold:'#c9a84c', red:'#ef5350' };
+  // Guardar data actual para los downloads
+  S.currentFlashcardData = data;
+
   document.getElementById('flashcardsContainer').innerHTML = `
-    <div style="margin-bottom:1.5rem">
-      <h2 style="font-family:'Playfair Display',serif;font-size:1.9rem;margin-bottom:.2rem">${data.nombre || 'Medicamento'}</h2>
-      <span style="font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text-dim)">${data.familia || ''}</span>
+    <div style="display:flex;align-items:flex-start;justify-content:space-between;flex-wrap:wrap;gap:1rem;margin-bottom:1.5rem">
+      <div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:1.9rem;margin-bottom:.2rem">${data.nombre || 'Medicamento'}</h2>
+        <span style="font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text-dim)">${data.familia || ''}</span>
+      </div>
+      <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+        <button class="btn btn-secondary" onclick="downloadFlashcardsPDF()" title="Descargar como PDF">
+          📄 Descargar PDF
+        </button>
+        <button class="btn btn-secondary" onclick="downloadFlashcardsImage()" title="Descargar como imagen">
+          🖼 Descargar Imagen
+        </button>
+      </div>
     </div>
-    <div class="flashcards-grid">
+    <div class="flashcards-grid" id="flashcardsGrid">
       ${(data.cards || []).map((c, i) => {
         const col = cm[c.color] || cm.teal;
         return `<div class="flashcard" style="animation-delay:${i*.06}s;border-top:2px solid ${col}50">
@@ -580,13 +593,180 @@ function renderFlashcards(data) {
                 <div style="font-size:.88rem">${c.notaApuntes}</div>
               </div>` : ''}
             <div style="margin-top:.75rem">
-              <span class="badge badge-ai">🤖 Groq · Llama 3</span>
+              <span class="badge badge-ai">🤖 Groq · Llama 4</span>
               ${c.enApuntes ? '<span class="badge badge-notes" style="margin-left:.3rem">📝 Apuntes</span>' : ''}
             </div>
           </div>
         </div>`;
       }).join('')}
     </div>`;
+}
+
+// ── Descargar flashcards como PDF ──
+async function downloadFlashcardsPDF() {
+  const data = S.currentFlashcardData;
+  if (!data) return;
+
+  toast('⏳ Generando PDF...', 'normal', 5000);
+
+  // Cargar jsPDF desde CDN si no está
+  if (!window.jspdf) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js');
+  }
+
+  const { jsPDF } = window.jspdf;
+  const doc = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' });
+
+  const cm = { teal:[79,195,195], purple:[124,111,212], gold:[201,168,76], red:[239,83,80] };
+  const pageW = 210, pageH = 297, margin = 15, colW = (pageW - margin*2 - 5) / 2;
+  let x = margin, y = margin;
+
+  // Título
+  doc.setFillColor(13, 16, 32);
+  doc.rect(0, 0, pageW, 28, 'F');
+  doc.setTextColor(79, 195, 195);
+  doc.setFontSize(18);
+  doc.setFont('helvetica', 'bold');
+  doc.text(data.nombre || 'Medicamento', margin, 12);
+  doc.setTextColor(136, 146, 176);
+  doc.setFontSize(9);
+  doc.setFont('helvetica', 'normal');
+  doc.text(data.familia || '', margin, 19);
+  doc.setTextColor(100, 100, 100);
+  doc.text('PharmaChem · Generado con Groq + Llama 4', margin, 25);
+  y = 35;
+
+  let col = 0;
+  for (const card of (data.cards || [])) {
+    const color = cm[card.color] || cm.teal;
+    const bodyLines = doc.splitTextToSize(card.contenido || '', colW - 8);
+    const notaLines = card.enApuntes && card.notaApuntes
+      ? doc.splitTextToSize('📝 ' + card.notaApuntes, colW - 8)
+      : [];
+    const cardH = 10 + (bodyLines.length * 4) + (notaLines.length > 0 ? notaLines.length * 4 + 6 : 0) + 4;
+
+    // Nueva página si no cabe
+    if (y + cardH > pageH - margin) {
+      doc.addPage();
+      y = margin;
+      col = 0;
+      x = margin;
+    }
+
+    const cx = col === 0 ? margin : margin + colW + 5;
+
+    // Fondo tarjeta
+    doc.setFillColor(19, 22, 40);
+    doc.roundedRect(cx, y, colW, cardH, 3, 3, 'F');
+
+    // Borde superior de color
+    doc.setFillColor(...color);
+    doc.rect(cx, y, colW, 1.5, 'F');
+
+    // Icono + título
+    doc.setTextColor(...color);
+    doc.setFontSize(8);
+    doc.setFont('helvetica', 'bold');
+    doc.text(`${card.icono}  ${card.titulo}`, cx + 4, y + 7);
+
+    // Contenido
+    doc.setTextColor(200, 210, 230);
+    doc.setFontSize(7);
+    doc.setFont('helvetica', 'normal');
+    doc.text(bodyLines, cx + 4, y + 12);
+
+    // Nota apuntes
+    if (notaLines.length > 0) {
+      const notaY = y + 12 + bodyLines.length * 4 + 2;
+      doc.setFillColor(40, 35, 20);
+      doc.rect(cx + 3, notaY - 2, colW - 6, notaLines.length * 4 + 3, 'F');
+      doc.setTextColor(201, 168, 76);
+      doc.setFontSize(6.5);
+      doc.text(notaLines, cx + 5, notaY + 2);
+    }
+
+    // Alternar columnas
+    col = col === 0 ? 1 : 0;
+    if (col === 0) y += cardH + 4;
+  }
+
+  doc.save(`${data.nombre || 'flashcards'}_farmacologia.pdf`);
+  toast('✅ PDF descargado', 'ok');
+}
+
+// ── Descargar flashcards como imagen ──
+async function downloadFlashcardsImage() {
+  const data = S.currentFlashcardData;
+  if (!data) return;
+
+  toast('⏳ Generando imagen...', 'normal', 5000);
+
+  // Cargar html2canvas desde CDN
+  if (!window.html2canvas) {
+    await loadScript('https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js');
+  }
+
+  const grid = document.getElementById('flashcardsGrid');
+  if (!grid) { toast('❌ Error: no hay flashcards', 'warn'); return; }
+
+  try {
+    const canvas = await window.html2canvas(grid, {
+      backgroundColor: '#07080f',
+      scale: 2,
+      useCORS: true,
+      logging: false
+    });
+
+    // Crear canvas final con encabezado
+    const finalCanvas = document.createElement('canvas');
+    const headerH = 70;
+    finalCanvas.width  = canvas.width;
+    finalCanvas.height = canvas.height + headerH;
+    const ctx = finalCanvas.getContext('2d');
+
+    // Fondo header
+    ctx.fillStyle = '#0d1020';
+    ctx.fillRect(0, 0, finalCanvas.width, headerH);
+
+    // Línea decorativa
+    const grad = ctx.createLinearGradient(0, 0, finalCanvas.width, 0);
+    grad.addColorStop(0, '#4fc3c3');
+    grad.addColorStop(1, '#7c6fd4');
+    ctx.fillStyle = grad;
+    ctx.fillRect(0, headerH - 2, finalCanvas.width, 2);
+
+    // Texto
+    ctx.fillStyle = '#4fc3c3';
+    ctx.font = `bold ${36 * 2}px serif`;
+    ctx.fillText(data.nombre || 'Medicamento', 30 * 2, 32 * 2);
+    ctx.fillStyle = '#8892b0';
+    ctx.font = `${11 * 2}px monospace`;
+    ctx.fillText(data.familia || '', 30 * 2, 48 * 2);
+    ctx.fillStyle = '#4a5568';
+    ctx.font = `${9 * 2}px monospace`;
+    ctx.fillText('PharmaChem · Groq + Llama 4', 30 * 2, 60 * 2);
+
+    // Pegar grid
+    ctx.drawImage(canvas, 0, headerH);
+
+    // Descargar
+    const link = document.createElement('a');
+    link.download = `${data.nombre || 'flashcards'}_farmacologia.png`;
+    link.href = finalCanvas.toDataURL('image/png');
+    link.click();
+    toast('✅ Imagen descargada', 'ok');
+  } catch(err) {
+    toast('❌ Error generando imagen: ' + err.message, 'warn');
+  }
+}
+
+// ── Helper: cargar script externo ──
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
 }
 
 function renderHistory() {
