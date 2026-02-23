@@ -1146,6 +1146,8 @@ function repasoSoloFalladas() {
   REPASO.sabidas = 0; REPASO.noSabidas = 0;
   renderRepasoCard();
 }
+
+function renderHistory() {
   document.getElementById('drugHistory').innerHTML = S.history.map(d =>
     `<span class="drug-pill" onclick="document.getElementById('drugInput').value='${d}';searchDrug()">${d}</span>`
   ).join('');
