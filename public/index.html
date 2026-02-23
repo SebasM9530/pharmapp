@@ -269,11 +269,11 @@
 // STATE
 // ══════════════════════════════
 const S = {
-  apuntes: [],           // NO cargar de localStorage — el servidor pierde los chunks al reiniciar
-  resumen: '',           // NO cargar de localStorage — sería resumen huérfano sin datos en servidor
+  apuntes: JSON.parse(localStorage.getItem('pc_apuntes') || '[]'),
+  resumen: localStorage.getItem('pc_resumen') || '',
   history: JSON.parse(localStorage.getItem('pc_history') || '[]'),
   quiz: [], answers: {}, submitted: false,
-  extractedDrugs: []     // medicamentos extraídos del resumen para el quiz
+  extractedDrugs: []
 };
 
 // ══════════════════════════════
@@ -501,9 +501,8 @@ function appendResumen(html) {
   S.resumen = S.resumen
     ? S.resumen + '<hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">' + html
     : html;
-  // NO guardar en localStorage — el servidor no persiste entre reinicios
+  localStorage.setItem('pc_resumen', S.resumen);
   document.getElementById('apuntesResumen').innerHTML = `<div style="line-height:1.8">${S.resumen}</div>`;
-  // Extraer medicamentos del HTML del resumen para el botón rápido del quiz
   extractDrugsFromResumen(html);
 }
 
@@ -536,7 +535,11 @@ function updateQuizDrugsBtn() {
 }
 
 function saveApuntes() {
-  // No persistir en localStorage — sin datos en servidor sería información huérfana
+  try {
+    localStorage.setItem('pc_apuntes', JSON.stringify(
+      S.apuntes.map(a => ({ id:a.id, name:a.name, type:a.type, chars:a.chars, url: a.url ? '[img]' : undefined }))
+    ));
+  } catch(e) {}
 }
 
 function renderApuntesList() {
@@ -1264,12 +1267,12 @@ const readAsText = f => new Promise(r => { const fr=new FileReader(); fr.onload=
 // INIT
 // ══════════════════════════════
 (function init() {
-  // Limpiar localStorage de sesiones anteriores para evitar mostrar datos huérfanos
-  localStorage.removeItem('pc_apuntes');
-  localStorage.removeItem('pc_resumen');
   renderApuntesList();
   renderHistory();
-  // NO restaurar resumen de localStorage — el servidor no tiene esos datos
+  if(S.resumen) {
+    document.getElementById('apuntesResumen').innerHTML = `<div style="line-height:1.8">${S.resumen}</div>`;
+    extractDrugsFromResumen(S.resumen);
+  }
   checkServer();
   setInterval(checkServer, 30000);
 })();

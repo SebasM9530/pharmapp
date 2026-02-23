@@ -40,34 +40,12 @@ function chunk(text, size = 700) {
   return out;
 }
 
-function relevantChunks(q, chunks, max = 6) {
-  if (!chunks.length) return [];
-
-  // Generar términos de búsqueda: nombre completo + partes individuales + prefijos de 4+ chars
-  const qLower = q.toLowerCase();
-  const terms = new Set();
-  terms.add(qLower); // nombre completo
-  qLower.split(/[\s,\/\-]+/).forEach(t => { if (t.length >= 3) terms.add(t); });
-  // Prefijos de 5+ chars (ej: "metron" encuentra "metronidazol")
-  [...terms].forEach(t => { if (t.length >= 6) terms.add(t.slice(0, 5)); });
-
-  const termArr = [...terms];
-
+function relevantChunks(q, chunks, max = 4) {
+  const terms = q.toLowerCase().split(/\s+/).filter(t => t.length > 3);
+  if (!terms.length || !chunks.length) return [];
   return chunks
-    .map(c => {
-      const cLow = c.toLowerCase();
-      let score = 0;
-      for (const t of termArr) {
-        const matches = (cLow.match(new RegExp(t, "g")) || []).length;
-        // Nombre completo vale más
-        score += matches * (t === qLower ? 3 : 1);
-      }
-      return { c, score };
-    })
-    .filter(x => x.score > 0)
-    .sort((a, b) => b.score - a.score)
-    .slice(0, max)
-    .map(x => x.c);
+    .map(c => ({ c, s: terms.reduce((a, t) => a + (c.toLowerCase().match(new RegExp(t, "g")) || []).length, 0) }))
+    .filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, max).map(x => x.c);
 }
 
 async function groq(system, user, temp = 0.35) {
@@ -208,41 +186,27 @@ app.post("/api/flashcards", async (req, res) => {
   const { drug } = req.body;
   if (!drug) return res.status(400).json({ error: "Fármaco requerido" });
   try {
-    // Buscar chunks específicos del medicamento
-    let chunks = relevantChunks(drug, globalChunks, 6);
-
-    // Si no encontró nada específico, buscar por grupo (ej: si busca "Metronidazol" buscar "nitroimidazol")
-    if (chunks.length === 0 && globalChunks.length > 0) {
-      chunks = globalChunks.slice(0, 4); // tomar los primeros chunks como contexto general
-    }
-
-    const hasNotes = chunks.length > 0;
-    const notesBlock = hasNotes
-      ? `\n\n═══ APUNTES DE LA ESTUDIANTE ═══\n${chunks.join("\n\n---\n\n")}\n═══════════════════════════════`
+    const chunks = relevantChunks(drug, globalChunks, 4);
+    const ctx = chunks.length
+      ? `\n\nDe los apuntes de la estudiante:\n${chunks.join("\n---\n")}`
       : "";
 
     const raw = await groq(
       "Eres farmacólogo clínico experto. Respondes en español con JSON puro válido, sin markdown, sin texto antes ni después del JSON.",
-      `Genera información farmacológica sobre: ${drug}
+      `Genera información farmacológica completa sobre: ${drug}${ctx}
 
-${hasNotes ? `⚠️ PRIORIDAD MÁXIMA: Los apuntes de la estudiante están abajo. DEBES:
-1. Leer los apuntes y extraer TODO lo que dicen sobre ${drug} o su grupo farmacológico
-2. En cada card, integrar lo que dicen los apuntes + complementar con tu conocimiento
-3. Si los apuntes mencionan algo específico sobre esta tarjeta: enApuntes=true, notaApuntes=cita textual del apunte
-4. El contenido debe reflejar principalmente LO QUE ESTÁ EN LOS APUNTES, no solo conocimiento general` :
-`No hay apuntes disponibles. Usa tu conocimiento completo de Goodman & Gilman y Katzung.`}
-
-Responde ÚNICAMENTE con este JSON sin texto extra:
+Responde ÚNICAMENTE con este JSON sin texto extra ni backticks:
 {"nombre":"nombre oficial","familia":"grupo farmacológico","cards":[
-{"titulo":"Mecanismo de Acción","icono":"⚙️","color":"teal","contenido":"mecanismo detallado integrando apuntes + conocimiento","enApuntes":false,"notaApuntes":""},
-{"titulo":"Espectro / Clasificación","icono":"🔭","color":"purple","contenido":"clasificación y espectro completo","enApuntes":false,"notaApuntes":""},
-{"titulo":"Indicaciones Clínicas","icono":"✅","color":"gold","contenido":"indicaciones con contexto clínico","enApuntes":false,"notaApuntes":""},
-{"titulo":"Contraindicaciones","icono":"🚫","color":"red","contenido":"contraindicaciones absolutas y relativas","enApuntes":false,"notaApuntes":""},
-{"titulo":"Interacciones Farmacológicas","icono":"⚡","color":"purple","contenido":"interacciones relevantes con mecanismo","enApuntes":false,"notaApuntes":""},
-{"titulo":"Reacciones Adversas (RAM)","icono":"⚠️","color":"gold","contenido":"efectos adversos por frecuencia y severidad","enApuntes":false,"notaApuntes":""},
-{"titulo":"Farmacocinética (ADME)","icono":"📊","color":"teal","contenido":"ADME con biodisponibilidad, Vd, unión proteínas, t½, eliminación","enApuntes":false,"notaApuntes":""},
-{"titulo":"Dosis y Presentaciones","icono":"💊","color":"gold","contenido":"dosis adultos y presentaciones disponibles","enApuntes":false,"notaApuntes":""}
-]}${notesBlock}`, 0.3
+{"titulo":"Mecanismo de Acción","icono":"⚙️","color":"teal","contenido":"mecanismo molecular detallado","enApuntes":false,"notaApuntes":""},
+{"titulo":"Espectro / Clasificación","icono":"🔭","color":"purple","contenido":"clasificación y espectro","enApuntes":false,"notaApuntes":""},
+{"titulo":"Indicaciones Clínicas","icono":"✅","color":"gold","contenido":"usos aprobados","enApuntes":false,"notaApuntes":""},
+{"titulo":"Contraindicaciones","icono":"🚫","color":"red","contenido":"absolutas y relativas","enApuntes":false,"notaApuntes":""},
+{"titulo":"Interacciones Farmacológicas","icono":"⚡","color":"purple","contenido":"interacciones relevantes","enApuntes":false,"notaApuntes":""},
+{"titulo":"Reacciones Adversas (RAM)","icono":"⚠️","color":"gold","contenido":"efectos adversos","enApuntes":false,"notaApuntes":""},
+{"titulo":"Farmacocinética (ADME)","icono":"📊","color":"teal","contenido":"ADME completo","enApuntes":false,"notaApuntes":""},
+{"titulo":"Dosis y Presentaciones","icono":"💊","color":"gold","contenido":"dosis adultos y presentaciones","enApuntes":false,"notaApuntes":""}
+]}
+Si algo coincide con apuntes: enApuntes=true, notaApuntes=texto del apunte.`, 0.3
     );
     const m = raw.replace(/```json|```/g,"").trim().match(/\{[\s\S]*\}/);
     if (!m) throw new Error("Respuesta no válida. Intenta de nuevo.");
