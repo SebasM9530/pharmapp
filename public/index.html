@@ -159,6 +159,7 @@
       <button class="nav-btn active" onclick="showPage('apuntes',this)">📁 Apuntes</button>
       <button class="nav-btn" onclick="showPage('flashcards',this)">🃏 Flashcards</button>
       <button class="nav-btn" onclick="showPage('quiz',this)">🧪 Quiz</button>
+      <button class="nav-btn" onclick="showPage('repaso',this);iniciarRepaso()">🔄 Repaso</button>
     </nav>
   </div>
 </header>
@@ -215,7 +216,12 @@
     <div class="quiz-setup">
       <div>
         <label>Medicamentos (separados por coma)</label>
-        <input type="text" id="quizDrugs" placeholder="Ej: Penicilina, Ibuprofeno, Digoxina">
+        <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
+          <input type="text" id="quizDrugs" placeholder="Ej: Penicilina, Ibuprofeno, Digoxina" style="flex:1;min-width:200px">
+          <button id="usarMedicamentosBtn" onclick="usarMedicamentosDelResumen()" style="display:none;white-space:nowrap" class="btn btn-secondary" title="">
+            📋 Usar del resumen
+          </button>
+        </div>
       </div>
       <div class="quiz-row">
         <div><label>Número de preguntas</label><input type="number" id="quizCount" value="10" min="3" max="20" placeholder="3-20"></div>
@@ -242,6 +248,19 @@
   <div id="quizContainer"></div>
 </div>
 
+<!-- REPASO -->
+<div class="page" id="page-repaso">
+  <h1 class="section-title">🔄 Modo Repaso</h1>
+  <p class="section-sub">Repasa tus flashcards una por una · Marca lo que sabes</p>
+  <div id="repasoContainer">
+    <div class="empty">
+      <div class="emoji">🃏</div>
+      <p>Primero genera flashcards de un medicamento,<br>luego vuelve aquí para repasar</p>
+      <button class="btn btn-primary" onclick="showPage('flashcards',document.querySelector('[onclick*=flashcards]'))" style="margin-top:1rem">Ir a Flashcards</button>
+    </div>
+  </div>
+</div>
+
 </div><!-- #app -->
 <div id="toast"></div>
 
@@ -250,10 +269,11 @@
 // STATE
 // ══════════════════════════════
 const S = {
-  apuntes: JSON.parse(localStorage.getItem('pc_apuntes') || '[]'),
-  resumen: localStorage.getItem('pc_resumen') || '',
+  apuntes: [],           // NO cargar de localStorage — el servidor pierde los chunks al reiniciar
+  resumen: '',           // NO cargar de localStorage — sería resumen huérfano sin datos en servidor
   history: JSON.parse(localStorage.getItem('pc_history') || '[]'),
-  quiz: [], answers: {}, submitted: false
+  quiz: [], answers: {}, submitted: false,
+  extractedDrugs: []     // medicamentos extraídos del resumen para el quiz
 };
 
 // ══════════════════════════════
@@ -481,16 +501,42 @@ function appendResumen(html) {
   S.resumen = S.resumen
     ? S.resumen + '<hr style="border:none;border-top:1px solid var(--border);margin:1rem 0">' + html
     : html;
-  localStorage.setItem('pc_resumen', S.resumen);
+  // NO guardar en localStorage — el servidor no persiste entre reinicios
   document.getElementById('apuntesResumen').innerHTML = `<div style="line-height:1.8">${S.resumen}</div>`;
+  // Extraer medicamentos del HTML del resumen para el botón rápido del quiz
+  extractDrugsFromResumen(html);
+}
+
+function extractDrugsFromResumen(html) {
+  // Extraer nombres de fármacos de las etiquetas <strong> dentro de listas de medicamentos
+  const tmp = document.createElement('div');
+  tmp.innerHTML = html;
+  const strongs = tmp.querySelectorAll('ul li strong');
+  const nuevos = [];
+  strongs.forEach(el => {
+    const name = el.textContent.trim();
+    if (name && name.length > 2 && name.length < 40 && !S.extractedDrugs.includes(name)) {
+      nuevos.push(name);
+    }
+  });
+  S.extractedDrugs.push(...nuevos);
+  // Actualizar el botón del quiz si existe
+  updateQuizDrugsBtn();
+}
+
+function updateQuizDrugsBtn() {
+  const btn = document.getElementById('usarMedicamentosBtn');
+  if (!btn) return;
+  if (S.extractedDrugs.length > 0) {
+    btn.style.display = 'inline-flex';
+    btn.title = S.extractedDrugs.join(', ');
+  } else {
+    btn.style.display = 'none';
+  }
 }
 
 function saveApuntes() {
-  try {
-    localStorage.setItem('pc_apuntes', JSON.stringify(
-      S.apuntes.map(a => ({ id:a.id, name:a.name, type:a.type, chars:a.chars, url: a.url ? '[img]' : undefined }))
-    ));
-  } catch(e) {}
+  // No persistir en localStorage — sin datos en servidor sería información huérfana
 }
 
 function renderApuntesList() {
@@ -947,7 +993,159 @@ async function downloadFlashcardsImage() {
   toast('✅ Imagen descargada', 'ok');
 }
 
-function renderHistory() {
+function usarMedicamentosDelResumen() {
+  if (!S.extractedDrugs.length) { toast('⚠ Sube un archivo primero para extraer medicamentos', 'warn'); return; }
+  document.getElementById('quizDrugs').value = S.extractedDrugs.slice(0, 10).join(', ');
+  toast(`✅ ${S.extractedDrugs.length} medicamentos cargados del resumen`, 'ok');
+}
+
+// ══════════════════════════════════════════════
+// MODO REPASO
+// ══════════════════════════════════════════════
+const REPASO = { cards: [], current: 0, revealed: false, sabidas: 0, noSabidas: 0 };
+
+function iniciarRepaso() {
+  const data = S.currentFlashcardData;
+  const el = document.getElementById('repasoContainer');
+
+  if (!data?.cards?.length) {
+    el.innerHTML = `
+      <div class="empty">
+        <div class="emoji">🃏</div>
+        <p>Primero genera flashcards de un medicamento,<br>luego vuelve aquí para repasar</p>
+        <button class="btn btn-primary" onclick="showPage('flashcards',document.querySelectorAll('.nav-btn')[1])" style="margin-top:1rem">Ir a Flashcards</button>
+      </div>`;
+    return;
+  }
+
+  // Mezclar las cards
+  REPASO.cards = [...data.cards].sort(() => Math.random() - 0.5);
+  REPASO.current = 0;
+  REPASO.revealed = false;
+  REPASO.sabidas = 0;
+  REPASO.noSabidas = 0;
+  renderRepasoCard();
+}
+
+function renderRepasoCard() {
+  const el = document.getElementById('repasoContainer');
+  const total = REPASO.cards.length;
+  const idx   = REPASO.current;
+
+  if (idx >= total) {
+    // Resultados finales
+    const pct = Math.round(REPASO.sabidas / total * 100);
+    const emoji = pct >= 80 ? '🏆' : pct >= 60 ? '✅' : '📖';
+    el.innerHTML = `
+      <div style="max-width:500px;margin:0 auto;text-align:center">
+        <div style="font-size:4rem;margin-bottom:1rem">${emoji}</div>
+        <h2 style="font-family:'Playfair Display',serif;font-size:2rem;margin-bottom:.5rem;color:var(--accent)">${pct}% dominado</h2>
+        <p style="color:var(--text-dim);margin-bottom:2rem">de ${total} cards — ${REPASO.sabidas} sabidas, ${REPASO.noSabidas} para repasar</p>
+        <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
+          <button class="btn btn-primary" onclick="iniciarRepaso()">🔄 Repasar de nuevo</button>
+          <button class="btn btn-secondary" onclick="repasoSoloFalladas()">❌ Solo las que fallé</button>
+        </div>
+      </div>`;
+    return;
+  }
+
+  const card = REPASO.cards[idx];
+  const cm = { teal:'#4fc3c3', purple:'#7c6fd4', gold:'#c9a84c', red:'#ef5350' };
+  const col = cm[card.color] || cm.teal;
+  const data = S.currentFlashcardData;
+
+  el.innerHTML = `
+    <div style="max-width:640px;margin:0 auto">
+
+      <!-- Progreso -->
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem">
+        <span style="font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text-dim)">${data.nombre} · Card ${idx+1} de ${total}</span>
+        <div style="display:flex;gap:.5rem">
+          <span style="font-family:'DM Mono',monospace;font-size:.72rem;padding:.2rem .6rem;background:rgba(38,166,154,.15);color:var(--success);border-radius:6px">✓ ${REPASO.sabidas}</span>
+          <span style="font-family:'DM Mono',monospace;font-size:.72rem;padding:.2rem .6rem;background:rgba(239,83,80,.15);color:var(--danger);border-radius:6px">✗ ${REPASO.noSabidas}</span>
+        </div>
+      </div>
+
+      <!-- Barra de progreso -->
+      <div style="height:4px;background:#1e2545;border-radius:4px;margin-bottom:1.5rem;overflow:hidden">
+        <div style="height:100%;width:${(idx/total)*100}%;background:linear-gradient(90deg,var(--accent),var(--accent3));transition:width .4s"></div>
+      </div>
+
+      <!-- Card -->
+      <div style="background:#131628;border:1px solid #1e2545;border-radius:18px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
+
+        <!-- Titulo (siempre visible) -->
+        <div style="padding:1.4rem 1.6rem;border-bottom:1px solid #1e2545;display:flex;align-items:center;gap:.75rem;background:#0d1020">
+          <div style="width:12px;height:12px;border-radius:50%;background:${col};flex-shrink:0"></div>
+          <span style="font-family:'DM Mono',monospace;font-size:.8rem;color:${col};text-transform:uppercase;letter-spacing:.1em;font-weight:600">${card.titulo}</span>
+        </div>
+
+        <!-- Pregunta / Hint -->
+        <div style="padding:2rem 1.6rem;text-align:center;min-height:80px;display:flex;align-items:center;justify-content:center">
+          <p style="color:var(--text-dim);font-size:1rem;font-style:italic">¿Cuál es el <strong style="color:${col}">${card.titulo.toLowerCase()}</strong> de <strong style="color:var(--text)">${data.nombre}</strong>?</p>
+        </div>
+
+        <!-- Respuesta (oculta hasta revelar) -->
+        <div id="repasoRespuesta" style="border-top:1px solid #1e2545;padding:1.4rem 1.6rem;display:${REPASO.revealed ? 'block' : 'none'}">
+          <p style="line-height:1.7;color:var(--text)">${card.contenido}</p>
+          ${card.enApuntes && card.notaApuntes ? `
+            <div style="margin-top:1rem;padding:.8rem 1rem;background:#1a130a;border-left:3px solid #c9a84c;border-radius:0 8px 8px 0">
+              <div style="font-family:'DM Mono',monospace;font-size:.65rem;color:#c9a84c;margin-bottom:.3rem">📝 TUS APUNTES</div>
+              <p style="font-size:.9rem;color:#c9a84c">${card.notaApuntes}</p>
+            </div>` : ''}
+        </div>
+
+        <!-- Botones -->
+        <div style="padding:1.2rem 1.6rem;border-top:1px solid #1e2545;display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">
+          ${!REPASO.revealed ? `
+            <button class="btn btn-primary" onclick="revelarRepaso()" style="min-width:180px">
+              👁 Ver respuesta
+            </button>
+          ` : `
+            <button class="btn btn-secondary" onclick="marcarRepaso(false)"
+              style="border-color:var(--danger);color:var(--danger);min-width:140px"
+              onmouseover="this.style.background='rgba(239,83,80,.1)'" onmouseout="this.style.background='transparent'">
+              ✗ No lo sabía
+            </button>
+            <button class="btn btn-secondary" onclick="marcarRepaso(true)"
+              style="border-color:var(--success);color:var(--success);min-width:140px"
+              onmouseover="this.style.background='rgba(38,166,154,.1)'" onmouseout="this.style.background='transparent'">
+              ✓ Lo sabía
+            </button>
+          `}
+        </div>
+      </div>
+    </div>`;
+}
+
+function revelarRepaso() {
+  REPASO.revealed = true;
+  document.getElementById('repasoRespuesta').style.display = 'block';
+  // Cambiar botón
+  renderRepasoCard();
+}
+
+function marcarRepaso(sabia) {
+  if (sabia) REPASO.sabidas++;
+  else { REPASO.noSabidas++; REPASO.cards.push(REPASO.cards[REPASO.current]); } // re-añadir al final si falló
+  REPASO.current++;
+  REPASO.revealed = false;
+  // Limitar máximo a 3 vueltas para evitar loop infinito
+  if (REPASO.cards.length > S.currentFlashcardData.cards.length * 3) {
+    REPASO.current = REPASO.cards.length; // forzar fin
+  }
+  renderRepasoCard();
+}
+
+function repasoSoloFalladas() {
+  // Repasar solo las que se marcaron como no sabidas
+  const falladas = REPASO.cards.slice(S.currentFlashcardData.cards.length);
+  if (!falladas.length) { toast('¡No fallaste ninguna! 🏆', 'ok'); return; }
+  REPASO.cards = [...new Set(falladas)]; // deduplicar
+  REPASO.current = 0; REPASO.revealed = false;
+  REPASO.sabidas = 0; REPASO.noSabidas = 0;
+  renderRepasoCard();
+}
   document.getElementById('drugHistory').innerHTML = S.history.map(d =>
     `<span class="drug-pill" onclick="document.getElementById('drugInput').value='${d}';searchDrug()">${d}</span>`
   ).join('');
@@ -1064,9 +1262,12 @@ const readAsText = f => new Promise(r => { const fr=new FileReader(); fr.onload=
 // INIT
 // ══════════════════════════════
 (function init() {
+  // Limpiar localStorage de sesiones anteriores para evitar mostrar datos huérfanos
+  localStorage.removeItem('pc_apuntes');
+  localStorage.removeItem('pc_resumen');
   renderApuntesList();
   renderHistory();
-  if(S.resumen) document.getElementById('apuntesResumen').innerHTML = `<div style="line-height:1.8">${S.resumen}</div>`;
+  // NO restaurar resumen de localStorage — el servidor no tiene esos datos
   checkServer();
   setInterval(checkServer, 30000);
 })();
