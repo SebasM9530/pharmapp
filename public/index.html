@@ -13,6 +13,7 @@
   .molecule{position:absolute;opacity:.04;animation:floatMol linear infinite}
   @keyframes floatMol{0%{transform:translateY(110vh) rotate(0deg)}100%{transform:translateY(-20vh) rotate(360deg)}}
   #app{position:relative;z-index:1;min-height:100vh}
+  /* HEADER */
   header{padding:1.2rem 2rem;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--border);background:rgba(7,8,15,.9);backdrop-filter:blur(12px);position:sticky;top:0;z-index:100;flex-wrap:wrap;gap:.75rem}
   .logo{display:flex;align-items:center;gap:.75rem}
   .logo-text{font-family:'Playfair Display',serif;font-size:1.4rem}
@@ -28,13 +29,16 @@
   .srv-dot.ok{background:var(--success);animation:none}
   @keyframes pulse{0%,100%{opacity:1}50%{opacity:.3}}
   .srv-label{font-family:'DM Mono',monospace;font-size:.68rem;color:var(--text-dim)}
+  /* PAGES */
   .page{display:none;padding:2rem;max-width:1100px;margin:0 auto;width:100%;animation:fadeIn .3s ease}
   .page.active{display:block}
   @keyframes fadeIn{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+  /* CARD */
   .card{background:var(--surface);border:1px solid var(--border);border-radius:16px;padding:1.5rem;position:relative;overflow:hidden;margin-bottom:1rem}
   .card::before{content:'';position:absolute;top:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent3));opacity:.6}
   .section-title{font-family:'Playfair Display',serif;font-size:1.5rem;margin-bottom:.2rem}
   .section-sub{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--text-dim);letter-spacing:.1em;text-transform:uppercase;margin-bottom:1.5rem}
+  /* BTN */
   .btn{display:inline-flex;align-items:center;gap:.5rem;padding:.65rem 1.4rem;border-radius:10px;border:none;font-family:'DM Mono',monospace;font-size:.78rem;cursor:pointer;transition:all .2s;letter-spacing:.05em;text-transform:uppercase}
   .btn-primary{background:linear-gradient(135deg,var(--accent),#3da8a8);color:#07080f;font-weight:500}
   .btn-primary:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(79,195,195,.3)}
@@ -43,10 +47,12 @@
   .btn-gold{background:linear-gradient(135deg,var(--accent2),#b8952e);color:#07080f;font-weight:500}
   .btn-gold:hover{transform:translateY(-1px);box-shadow:0 4px 20px rgba(201,168,76,.3)}
   .btn:disabled{opacity:.4;cursor:not-allowed;transform:none!important}
+  /* INPUTS */
   input[type="text"],input[type="number"],select{background:var(--surface2);border:1px solid var(--border);border-radius:10px;color:var(--text);font-family:'Crimson Pro',serif;font-size:1rem;padding:.65rem 1rem;transition:border-color .2s;width:100%;outline:none}
   input:focus,select:focus{border-color:var(--accent);box-shadow:0 0 0 3px rgba(79,195,195,.1)}
   select option{background:var(--surface2)}
   label{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--text-dim);display:block;margin-bottom:.4rem;letter-spacing:.05em}
+  /* UPLOAD */
   .upload-zone{border:2px dashed var(--border);border-radius:16px;padding:2.5rem;text-align:center;cursor:pointer;transition:all .2s;position:relative}
   .upload-zone:hover,.upload-zone.drag-over{border-color:var(--accent);background:rgba(79,195,195,.04)}
   .upload-zone input{position:absolute;inset:0;opacity:0;cursor:pointer}
@@ -57,16 +63,19 @@
   .apunte-tag{display:flex;align-items:center;gap:.5rem;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:.4rem .75rem;font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text-dim)}
   .apunte-tag .rm{background:none;border:none;color:var(--danger);cursor:pointer;font-size:1rem;line-height:1}
   .apunte-thumb{width:36px;height:36px;border-radius:4px;object-fit:cover}
+  /* PROGRESS */
   .progress-wrap{margin-top:.5rem;display:none}
   .progress-wrap.show{display:block}
   .progress-bar{height:4px;background:var(--border);border-radius:2px;overflow:hidden}
   .progress-fill{height:100%;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:2px;transition:width .3s;width:0%}
   .progress-label{font-family:'DM Mono',monospace;font-size:.7rem;color:var(--text-dim);margin-top:.3rem}
+  /* DRUG SEARCH */
   .drug-search-bar{display:flex;gap:.75rem;margin-bottom:1rem}
   .drug-search-bar input{flex:1}
   .drug-history{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.2rem}
   .drug-pill{padding:.3rem .9rem;border-radius:20px;font-family:'DM Mono',monospace;font-size:.72rem;cursor:pointer;transition:all .15s;border:1px solid var(--border);background:var(--surface2);color:var(--text-dim)}
   .drug-pill:hover{border-color:var(--accent);color:var(--accent)}
+  /* FLASHCARDS */
   .flashcards-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(290px,1fr));gap:1rem;margin-top:1rem}
   .flashcard{background:var(--surface);border:1px solid var(--border);border-radius:16px;overflow:hidden;animation:cardAppear .4s ease both;transition:transform .2s,box-shadow .2s}
   .flashcard:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(0,0,0,.3)}
@@ -79,11 +88,13 @@
   .badge{display:inline-flex;align-items:center;gap:.3rem;font-family:'DM Mono',monospace;font-size:.65rem;padding:.15rem .5rem;border-radius:20px;margin-top:.5rem}
   .badge-ai{background:rgba(79,195,195,.1);color:var(--accent);border:1px solid rgba(79,195,195,.2)}
   .badge-notes{background:rgba(201,168,76,.1);color:var(--accent2);border:1px solid rgba(201,168,76,.2)}
+  /* LOADER */
   .loader{display:none;flex-direction:column;align-items:center;gap:1rem;padding:3rem;text-align:center}
   .loader.active{display:flex}
   .loader-ring{width:48px;height:48px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .8s linear infinite}
   @keyframes spin{to{transform:rotate(360deg)}}
   .loader p{font-family:'DM Mono',monospace;font-size:.8rem;color:var(--text-dim)}
+  /* QUIZ */
   .quiz-setup{display:flex;flex-direction:column;gap:1rem}
   .quiz-row{display:flex;gap:1rem;align-items:flex-end;flex-wrap:wrap}
   .quiz-row>*{flex:1;min-width:140px}
@@ -110,6 +121,7 @@
   .result-stat{background:var(--surface2);border:1px solid var(--border);border-radius:12px;padding:.75rem 1.5rem;text-align:center}
   .result-stat .num{font-family:'Playfair Display',serif;font-size:1.8rem;color:var(--accent2)}
   .result-stat .lbl{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--text-dim);text-transform:uppercase}
+  /* TOAST */
   #toast{position:fixed;bottom:1.5rem;right:1.5rem;background:var(--surface2);border:1px solid var(--accent);border-radius:12px;padding:.75rem 1.2rem;font-family:'DM Mono',monospace;font-size:.8rem;color:var(--accent);z-index:999;transform:translateY(80px);opacity:0;transition:all .3s;max-width:340px;line-height:1.4}
   #toast.show{transform:none;opacity:1}
   #toast.warn{border-color:var(--warn);color:var(--warn)}
@@ -147,7 +159,6 @@
       <button class="nav-btn active" onclick="showPage('apuntes',this)">📁 Apuntes</button>
       <button class="nav-btn" onclick="showPage('flashcards',this)">🃏 Flashcards</button>
       <button class="nav-btn" onclick="showPage('quiz',this)">🧪 Quiz</button>
-      <button class="nav-btn" onclick="showPage('repaso',this);iniciarRepaso()">🔄 Repaso</button>
     </nav>
   </div>
 </header>
@@ -156,6 +167,7 @@
 <div class="page active" id="page-apuntes">
   <h1 class="section-title">📁 Mis Apuntes</h1>
   <p class="section-sub">Sube PDFs escaneados, fotos de cuaderno o TXT — OCR automático con IA</p>
+
   <div class="card">
     <div class="upload-zone" id="uploadZone">
       <input type="file" id="fileInput" multiple accept=".pdf,.txt,image/*">
@@ -169,6 +181,7 @@
     </div>
     <div class="apuntes-list" id="apuntesList"></div>
   </div>
+
   <div class="card">
     <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1rem;flex-wrap:wrap;gap:.5rem">
       <h3 style="font-family:'Playfair Display',serif">📝 Resumen Analizado por Groq</h3>
@@ -202,12 +215,7 @@
     <div class="quiz-setup">
       <div>
         <label>Medicamentos (separados por coma)</label>
-        <div style="display:flex;gap:.6rem;align-items:center;flex-wrap:wrap">
-          <input type="text" id="quizDrugs" placeholder="Ej: Penicilina, Ibuprofeno, Digoxina" style="flex:1;min-width:200px">
-          <button id="usarMedicamentosBtn" onclick="usarMedicamentosDelResumen()" style="display:none;white-space:nowrap" class="btn btn-secondary">
-            📋 Usar del resumen
-          </button>
-        </div>
+        <input type="text" id="quizDrugs" placeholder="Ej: Penicilina, Ibuprofeno, Digoxina">
       </div>
       <div class="quiz-row">
         <div><label>Número de preguntas</label><input type="number" id="quizCount" value="10" min="3" max="20" placeholder="3-20"></div>
@@ -234,19 +242,6 @@
   <div id="quizContainer"></div>
 </div>
 
-<!-- REPASO -->
-<div class="page" id="page-repaso">
-  <h1 class="section-title">🔄 Modo Repaso</h1>
-  <p class="section-sub">Repasa tus flashcards una por una · Marca lo que sabes</p>
-  <div id="repasoContainer">
-    <div class="empty">
-      <div class="emoji">🃏</div>
-      <p>Primero genera flashcards de un medicamento,<br>luego vuelve aquí para repasar</p>
-      <button class="btn btn-primary" onclick="showPage('flashcards',document.querySelectorAll('.nav-btn')[1])" style="margin-top:1rem">Ir a Flashcards</button>
-    </div>
-  </div>
-</div>
-
 </div><!-- #app -->
 <div id="toast"></div>
 
@@ -258,8 +253,7 @@ const S = {
   apuntes: JSON.parse(localStorage.getItem('pc_apuntes') || '[]'),
   resumen: localStorage.getItem('pc_resumen') || '',
   history: JSON.parse(localStorage.getItem('pc_history') || '[]'),
-  quiz: [], answers: {}, submitted: false,
-  extractedDrugs: []
+  quiz: [], answers: {}, submitted: false
 };
 
 // ══════════════════════════════
@@ -313,6 +307,7 @@ function setProgress(pct, label) {
 async function checkServer() {
   try {
     const r = await fetch('/api/health');
+    // Si el server responde (aunque sea error de json) está online
     document.getElementById('srvDot').className = 'srv-dot ok';
     document.getElementById('srvLbl').textContent = 'Servidor online';
   } catch(e) {
@@ -335,11 +330,14 @@ fi.addEventListener('change', e => { handleFiles(e.target.files); fi.value = '';
 async function handleFiles(files) {
   for(const f of files) {
     const id = Date.now() + '-' + Math.random().toString(36).slice(2);
+
     if(f.type === 'application/pdf') {
       await uploadPDF(f, id);
     } else if(f.type.startsWith('image/')) {
+      // Imágenes: enviar al servidor para OCR con Groq Vision
       await uploadImage(f, id);
     } else {
+      // TXT u otro texto
       await uploadText(f, id);
     }
   }
@@ -349,6 +347,7 @@ async function uploadPDF(file, id) {
   toast(`⏳ Convirtiendo páginas de ${file.name}...`);
   setProgress(5, 'Cargando PDF...');
   try {
+    // 1) Cargar pdf.js desde CDN
     if (!window.pdfjsLib) {
       await new Promise((resolve, reject) => {
         const s = document.createElement('script');
@@ -360,30 +359,41 @@ async function uploadPDF(file, id) {
         'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
     }
 
+    // 2) Leer el archivo como ArrayBuffer
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
     const totalPages = Math.min(pdf.numPages, 9);
     const pages = [];
 
+    // 3) Renderizar cada página a canvas → JPEG base64
     for (let i = 1; i <= totalPages; i++) {
-      setProgress(Math.round(5 + (i / totalPages) * 50), `Renderizando página ${i}/${totalPages}...`);
+      setProgress(Math.round(5 + (i / totalPages) * 50),
+        `Renderizando página ${i}/${totalPages}...`);
+
       const page = await pdf.getPage(i);
+
+      // Intentar texto digital primero (PDF no escaneado)
       const tc = await page.getTextContent();
       const txt = tc.items.map(it => it.str).join(' ').trim();
       if (txt.length > 80) {
         pages.push({ type: 'text', content: txt, pageNum: i });
         continue;
       }
+
+      // Escaneado → renderizar a imagen
       const viewport = page.getViewport({ scale: 1.8 });
       const canvas = document.createElement('canvas');
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+      // Convertir a JPEG para reducir tamaño
       const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
       pages.push({ base64, mime: 'image/jpeg', pageNum: i });
     }
 
     setProgress(60, 'Enviando a Groq Vision para OCR...');
+
+    // 4) Mandar todas las páginas al servidor
     const res = await fetch('/api/upload-pages', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -424,6 +434,7 @@ async function uploadImage(file, id) {
     if(!res.ok) throw new Error(data.error || `Error ${res.status}`);
     setProgress(100, '¡Listo!');
     setTimeout(() => setProgress(null), 800);
+    // Preview visual
     const url = await readAsDataURL(file);
     S.apuntes.push({ id, name: file.name, type: 'image', url, chars: data.charCount });
     saveApuntes(); renderApuntesList();
@@ -441,6 +452,7 @@ async function uploadText(file, id) {
     setProgress(20, `Leyendo ${file.name}...`);
     const text = await readAsText(file);
     setProgress(50, 'Enviando a Groq...');
+
     const res = await fetch('/api/analyze-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
@@ -448,12 +460,16 @@ async function uploadText(file, id) {
     });
     const data = await res.json();
     if(!res.ok) throw new Error(data.error || `Error ${res.status}`);
+
     setProgress(100, '¡Listo!');
     setTimeout(() => setProgress(null), 800);
+
     S.apuntes.push({ id, name: file.name, type: 'text', chars: text.length });
-    saveApuntes(); renderApuntesList();
+    saveApuntes();
+    renderApuntesList();
     appendResumen(data.resumen);
     toast(`✅ Texto procesado: ${file.name}`, 'ok');
+
   } catch(err) {
     setProgress(null);
     toast(`❌ ${err.message}`, 'warn', 6000);
@@ -467,33 +483,6 @@ function appendResumen(html) {
     : html;
   localStorage.setItem('pc_resumen', S.resumen);
   document.getElementById('apuntesResumen').innerHTML = `<div style="line-height:1.8">${S.resumen}</div>`;
-  extractDrugsFromResumen(html);
-}
-
-function extractDrugsFromResumen(html) {
-  const tmp = document.createElement('div');
-  tmp.innerHTML = html;
-  const strongs = tmp.querySelectorAll('ul li strong');
-  const nuevos = [];
-  strongs.forEach(el => {
-    const name = el.textContent.trim();
-    if (name && name.length > 2 && name.length < 40 && !S.extractedDrugs.includes(name)) {
-      nuevos.push(name);
-    }
-  });
-  S.extractedDrugs.push(...nuevos);
-  updateQuizDrugsBtn();
-}
-
-function updateQuizDrugsBtn() {
-  const btn = document.getElementById('usarMedicamentosBtn');
-  if (!btn) return;
-  if (S.extractedDrugs.length > 0) {
-    btn.style.display = 'inline-flex';
-    btn.title = S.extractedDrugs.join(', ');
-  } else {
-    btn.style.display = 'none';
-  }
 }
 
 function saveApuntes() {
@@ -634,16 +623,25 @@ function openEditModal(cardIndex) {
   const cm = { teal:'#4fc3c3', purple:'#7c6fd4', gold:'#c9a84c', red:'#ef5350' };
   const col = cm[card.color] || cm.teal;
 
+  // Crear modal si no existe
   let modal = document.getElementById('editModal');
   if (!modal) {
     modal = document.createElement('div');
     modal.id = 'editModal';
-    modal.style.cssText = `position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);padding:1rem;`;
+    modal.style.cssText = `
+      position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;
+      background:rgba(0,0,0,0.75);backdrop-filter:blur(6px);padding:1rem;
+    `;
     document.body.appendChild(modal);
   }
 
   modal.innerHTML = `
-    <div style="background:#0d1020;border:1px solid #1e2545;border-radius:18px;width:100%;max-width:620px;max-height:90vh;overflow-y:auto;box-shadow:0 20px 60px rgba(0,0,0,0.6);">
+    <div style="
+      background:#0d1020;border:1px solid #1e2545;border-radius:18px;
+      width:100%;max-width:620px;max-height:90vh;overflow-y:auto;
+      box-shadow:0 20px 60px rgba(0,0,0,0.6);
+    ">
+      <!-- Header -->
       <div style="padding:1.4rem 1.6rem;border-bottom:1px solid #1e2545;display:flex;align-items:center;justify-content:space-between">
         <div style="display:flex;align-items:center;gap:.75rem">
           <div style="width:10px;height:10px;border-radius:50%;background:${col}"></div>
@@ -652,26 +650,51 @@ function openEditModal(cardIndex) {
         <button onclick="closeEditModal()" style="background:none;border:none;color:var(--text-dim);font-size:1.3rem;cursor:pointer;padding:.2rem .5rem;border-radius:6px"
           onmouseover="this.style.color='var(--danger)'" onmouseout="this.style.color='var(--text-dim)'">✕</button>
       </div>
+
+      <!-- Body -->
       <div style="padding:1.6rem;display:flex;flex-direction:column;gap:1.2rem">
+
         <div>
-          <label style="font-family:'DM Mono',monospace;font-size:.72rem;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:.5rem">📋 Contenido principal</label>
-          <textarea id="editContenido" rows="7" style="width:100%;background:#07080f;border:1px solid #1e2545;border-radius:10px;color:var(--text);font-family:'Crimson Pro',serif;font-size:1rem;padding:.9rem 1rem;resize:vertical;line-height:1.6;outline:none;transition:border-color .2s;"
-            onfocus="this.style.borderColor='${col}'" onblur="this.style.borderColor='#1e2545'">${card.contenido}</textarea>
+          <label style="font-family:'DM Mono',monospace;font-size:.72rem;color:var(--text-dim);letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:.5rem">
+            📋 Contenido principal
+          </label>
+          <textarea id="editContenido" rows="7" style="
+            width:100%;background:#07080f;border:1px solid #1e2545;border-radius:10px;
+            color:var(--text);font-family:'Crimson Pro',serif;font-size:1rem;
+            padding:.9rem 1rem;resize:vertical;line-height:1.6;outline:none;
+            transition:border-color .2s;
+          " onfocus="this.style.borderColor='${col}'" onblur="this.style.borderColor='#1e2545'"
+          >${card.contenido}</textarea>
         </div>
+
         <div>
-          <label style="font-family:'DM Mono',monospace;font-size:.72rem;color:#c9a84c;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:.5rem">📝 Nota de tus apuntes <span style="color:var(--text-dim);font-size:.65rem">(opcional)</span></label>
-          <textarea id="editNota" rows="4" placeholder="Escribe aquí información adicional de tus apuntes..." style="width:100%;background:#1a130a;border:1px solid #3a2a10;border-radius:10px;color:#c9a84c;font-family:'Crimson Pro',serif;font-size:.95rem;padding:.9rem 1rem;resize:vertical;line-height:1.6;outline:none;transition:border-color .2s;"
-            onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='#3a2a10'">${card.notaApuntes || ''}</textarea>
+          <label style="font-family:'DM Mono',monospace;font-size:.72rem;color:#c9a84c;letter-spacing:.08em;text-transform:uppercase;display:block;margin-bottom:.5rem">
+            📝 Nota de tus apuntes <span style="color:var(--text-dim);font-size:.65rem">(opcional)</span>
+          </label>
+          <textarea id="editNota" rows="4" placeholder="Escribe aquí información adicional de tus apuntes..." style="
+            width:100%;background:#1a130a;border:1px solid #3a2a10;border-radius:10px;
+            color:#c9a84c;font-family:'Crimson Pro',serif;font-size:.95rem;
+            padding:.9rem 1rem;resize:vertical;line-height:1.6;outline:none;
+            transition:border-color .2s;
+          " onfocus="this.style.borderColor='#c9a84c'" onblur="this.style.borderColor='#3a2a10'"
+          >${card.notaApuntes || ''}</textarea>
         </div>
+
         <div style="display:flex;gap:.75rem;justify-content:flex-end;padding-top:.5rem">
           <button onclick="closeEditModal()" class="btn btn-secondary">Cancelar</button>
           <button onclick="saveCardEdit(${cardIndex})" class="btn btn-primary">💾 Guardar cambios</button>
         </div>
       </div>
-    </div>`;
+    </div>
+  `;
 
   modal.style.display = 'flex';
-  modal.addEventListener('click', function(e) { if (e.target === modal) closeEditModal(); }, { once: true });
+  // Cerrar al hacer click fuera
+  modal.addEventListener('click', function(e) {
+    if (e.target === modal) closeEditModal();
+  }, { once: true });
+
+  // Focus en el textarea
   setTimeout(() => document.getElementById('editContenido')?.focus(), 100);
 }
 
@@ -683,230 +706,249 @@ function closeEditModal() {
 function saveCardEdit(cardIndex) {
   const data = S.currentFlashcardData;
   if (!data?.cards?.[cardIndex]) return;
+
   const nuevoContenido = document.getElementById('editContenido').value.trim();
   const nuevaNota      = document.getElementById('editNota').value.trim();
+
   if (!nuevoContenido) { toast('⚠ El contenido no puede estar vacío', 'warn'); return; }
+
+  // Actualizar en memoria
   data.cards[cardIndex].contenido   = nuevoContenido;
   data.cards[cardIndex].notaApuntes = nuevaNota;
   data.cards[cardIndex].enApuntes   = nuevaNota.length > 0;
-  const contentEl = document.getElementById(`fc-content-${cardIndex}`);
-  const notaEl    = document.getElementById(`fc-nota-${cardIndex}`);
-  const notaBoxEl = document.getElementById(`fc-nota-box-${cardIndex}`);
+
+  // Actualizar DOM sin re-renderizar todo
+  const contentEl  = document.getElementById(`fc-content-${cardIndex}`);
+  const notaEl     = document.getElementById(`fc-nota-${cardIndex}`);
+  const notaBoxEl  = document.getElementById(`fc-nota-box-${cardIndex}`);
+
   if (contentEl) contentEl.textContent = nuevoContenido;
   if (notaEl)    notaEl.textContent    = nuevaNota;
   if (notaBoxEl) notaBoxEl.style.display = nuevaNota ? 'block' : 'none';
+
   closeEditModal();
   toast('✅ Flashcard actualizada', 'ok');
 }
 
 // ══════════════════════════════════════════════
-// DESCARGAR IMAGEN
+// HELPERS COMPARTIDOS PARA DESCARGA
 // ══════════════════════════════════════════════
-const CARD_LABELS = {
-  'Mecanismo de Acción':'MECANISMO','Espectro / Clasificación':'ESPECTRO',
-  'Indicaciones Clínicas':'INDICACIONES','Contraindicaciones':'CONTRAINDICACIONES',
-  'Interacciones Farmacológicas':'INTERACCIONES','Reacciones Adversas (RAM)':'RAM',
-  'Farmacocinética (ADME)':'FARMACOCINÉTICA','Dosis y Presentaciones':'DOSIS'
+
+function loadScript(src) {
+  return new Promise((resolve, reject) => {
+    if (document.querySelector(`script[src="${src}"]`)) { resolve(); return; }
+    const s = document.createElement('script');
+    s.src = src; s.onload = resolve; s.onerror = reject;
+    document.head.appendChild(s);
+  });
+}
+
+// Colores por categoría (sin emojis)
+const CARD_COLORS = {
+  teal:   { r:79,  g:195, b:195 },
+  purple: { r:124, g:111, b:212 },
+  gold:   { r:201, g:168, b:76  },
+  red:    { r:239, g:83,  b:80  }
 };
 
+const CARD_LABELS = {
+  'Mecanismo de Acción':       'MECANISMO',
+  'Espectro / Clasificación':  'ESPECTRO',
+  'Indicaciones Clínicas':     'INDICACIONES',
+  'Contraindicaciones':        'CONTRAINDICACIONES',
+  'Interacciones Farmacológicas': 'INTERACCIONES',
+  'Reacciones Adversas (RAM)': 'RAM',
+  'Farmacocinética (ADME)':    'FARMACOCINÉTICA',
+  'Dosis y Presentaciones':    'DOSIS'
+};
+
+
+// ══════════════════════════════════════════════
+// FUNCIÓN COMPARTIDA: construye el canvas con las flashcards
+// ══════════════════════════════════════════════
 async function buildFlashcardsCanvas(data) {
   const cards = data.cards || [];
-  const SCALE=2,M=40*SCALE,GAP=16*SCALE,COLS=2,CW=380*SCALE;
-  const TOTAL_W=M*2+CW*COLS+GAP,HEADER_H=100*SCALE,CARD_PAD=20*SCALE;
-  const FONT_TITLE=11*SCALE,FONT_BODY=9.5*SCALE,LINE_H=14*SCALE;
-  const canvas=document.createElement('canvas');
-  const ctx=canvas.getContext('2d');
-  ctx.font=`${FONT_BODY}px -apple-system, Segoe UI, sans-serif`;
-  function wrapText(text,maxW){
-    const words=(text||'').split(' ');const lines=[];let line='';
-    for(const w of words){const test=line?line+' '+w:w;if(ctx.measureText(test).width>maxW){lines.push(line);line=w;}else line=test;}
-    if(line)lines.push(line);return lines;
+  const SCALE = 2;
+  const M = 40 * SCALE;
+  const GAP = 16 * SCALE;
+  const COLS = 2;
+  const CW = 380 * SCALE;
+  const TOTAL_W = M * 2 + CW * COLS + GAP;
+  const HEADER_H = 100 * SCALE;
+  const CARD_PAD = 20 * SCALE;
+  const FONT_TITLE = 11 * SCALE;
+  const FONT_BODY  = 9.5 * SCALE;
+  const LINE_H = 14 * SCALE;
+
+  const canvas = document.createElement('canvas');
+  const ctx = canvas.getContext('2d');
+
+  ctx.font = `${FONT_BODY}px -apple-system, Segoe UI, sans-serif`;
+  function wrapText(text, maxW) {
+    const words = (text || '').split(' ');
+    const lines = []; let line = '';
+    for (const w of words) {
+      const test = line ? line + ' ' + w : w;
+      if (ctx.measureText(test).width > maxW) { lines.push(line); line = w; }
+      else line = test;
+    }
+    if (line) lines.push(line);
+    return lines;
   }
-  const cardMetas=cards.map(card=>{
-    const bodyLines=wrapText(card.contenido||'',CW-CARD_PAD*2);
-    const notaLines=card.enApuntes&&card.notaApuntes?wrapText('Tus apuntes: '+card.notaApuntes,CW-CARD_PAD*2-12*SCALE):[];
-    const TITLE_H=48*SCALE,BODY_H=bodyLines.length*LINE_H+CARD_PAD;
-    const NOTA_H=notaLines.length>0?notaLines.length*(LINE_H*0.9)+28*SCALE:0;
-    return{card,bodyLines,notaLines,totalH:TITLE_H+BODY_H+NOTA_H+CARD_PAD};
+
+  const cardMetas = cards.map(card => {
+    const bodyLines = wrapText(card.contenido || '', CW - CARD_PAD * 2);
+    const notaLines = card.enApuntes && card.notaApuntes
+      ? wrapText('Tus apuntes: ' + card.notaApuntes, CW - CARD_PAD * 2 - 12 * SCALE)
+      : [];
+    const TITLE_H = 48 * SCALE;
+    const BODY_H  = bodyLines.length * LINE_H + CARD_PAD;
+    const NOTA_H  = notaLines.length > 0 ? notaLines.length * (LINE_H * 0.9) + 28 * SCALE : 0;
+    const totalH  = TITLE_H + BODY_H + NOTA_H + CARD_PAD;
+    return { card, bodyLines, notaLines, totalH };
   });
-  const rowHeights=[];
-  for(let i=0;i<cardMetas.length;i+=COLS){const pair=cardMetas.slice(i,i+COLS);rowHeights.push(Math.max(...pair.map(m=>m.totalH)));}
-  let totalH=HEADER_H+GAP;for(const rh of rowHeights)totalH+=rh+GAP;totalH+=M;
-  canvas.width=TOTAL_W;canvas.height=totalH;
-  ctx.fillStyle='#07080f';ctx.fillRect(0,0,canvas.width,canvas.height);
-  ctx.fillStyle='#0d1020';ctx.fillRect(0,0,canvas.width,HEADER_H);
-  const grad=ctx.createLinearGradient(M,0,M+300*SCALE,0);
-  grad.addColorStop(0,'#4fc3c3');grad.addColorStop(1,'#7c6fd4');
-  ctx.fillStyle=grad;ctx.fillRect(M,HEADER_H-3,300*SCALE,3);
-  ctx.fillStyle='#4fc3c3';ctx.font=`bold ${28*SCALE}px Georgia, serif`;
-  ctx.fillText(data.nombre||'Medicamento',M,38*SCALE);
-  ctx.fillStyle='#8892b0';ctx.font=`${11*SCALE}px -apple-system, Segoe UI, sans-serif`;
-  ctx.fillText(data.familia||'',M,58*SCALE);
-  ctx.fillStyle='#3a4560';ctx.font=`${9*SCALE}px monospace`;
-  ctx.fillText('PharmaChem  ·  Groq + Llama 4',M,78*SCALE);
-  const COLORS={teal:'#4fc3c3',purple:'#7c6fd4',gold:'#c9a84c',red:'#ef5350'};
-  function roundRect(x,y,w,h,r){
-    ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);
-    ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);
-    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);
-    ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);
-    ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();
+
+  // Calcular alturas por fila (cada fila usa la tarjeta más alta)
+  const rowHeights = [];
+  for (let i = 0; i < cardMetas.length; i += COLS) {
+    const pair = cardMetas.slice(i, i + COLS);
+    rowHeights.push(Math.max(...pair.map(m => m.totalH)));
   }
-  let cardY=HEADER_H+GAP;
-  for(let row=0;row<rowHeights.length;row++){
-    const rowH=rowHeights[row];
-    for(let col=0;col<COLS;col++){
-      const idx=row*COLS+col;if(idx>=cardMetas.length)break;
-      const{card,bodyLines,notaLines}=cardMetas[idx];
-      const color=COLORS[card.color]||COLORS.teal;const cx=M+col*(CW+GAP);
-      ctx.shadowColor='rgba(0,0,0,0.5)';ctx.shadowBlur=15*SCALE;ctx.shadowOffsetY=4*SCALE;
-      ctx.fillStyle='#131628';roundRect(cx,cardY,CW,rowH,10*SCALE);ctx.fill();
-      ctx.shadowColor='transparent';ctx.shadowBlur=0;
-      ctx.fillStyle=color;roundRect(cx,cardY,CW,5*SCALE,3*SCALE);ctx.fill();
-      ctx.fillRect(cx,cardY+2*SCALE,CW,3*SCALE);
-      ctx.beginPath();ctx.arc(cx+28*SCALE,cardY+30*SCALE,10*SCALE,0,Math.PI*2);
-      ctx.fillStyle=color+'33';ctx.fill();
-      ctx.beginPath();ctx.arc(cx+28*SCALE,cardY+30*SCALE,5*SCALE,0,Math.PI*2);
-      ctx.fillStyle=color;ctx.fill();
-      ctx.fillStyle=color;ctx.font=`bold ${FONT_TITLE}px -apple-system, Segoe UI, sans-serif`;
-      ctx.fillText(CARD_LABELS[card.titulo]||card.titulo.toUpperCase(),cx+46*SCALE,cardY+35*SCALE);
-      ctx.strokeStyle=color+'44';ctx.lineWidth=1*SCALE;ctx.beginPath();
-      ctx.moveTo(cx+CARD_PAD,cardY+48*SCALE);ctx.lineTo(cx+CW-CARD_PAD,cardY+48*SCALE);ctx.stroke();
-      ctx.fillStyle='#c8d5f0';ctx.font=`${FONT_BODY}px -apple-system, Segoe UI, sans-serif`;
-      let textY=cardY+64*SCALE;
-      for(const line of bodyLines){ctx.fillText(line,cx+CARD_PAD,textY);textY+=LINE_H;}
-      if(notaLines.length>0){
-        const notaY=textY+8*SCALE,notaH=notaLines.length*(LINE_H*0.9)+20*SCALE;
-        ctx.fillStyle='#281f08';roundRect(cx+CARD_PAD,notaY,CW-CARD_PAD*2,notaH,5*SCALE);ctx.fill();
-        ctx.fillStyle='#c9a84c';ctx.fillRect(cx+CARD_PAD,notaY,4*SCALE,notaH);
-        ctx.font=`${8.5*SCALE}px -apple-system, Segoe UI, sans-serif`;
-        let ny=notaY+14*SCALE;
-        for(const nl of notaLines){ctx.fillText(nl,cx+CARD_PAD+12*SCALE,ny);ny+=LINE_H*0.9;}
+
+  let totalH = HEADER_H + GAP;
+  for (const rh of rowHeights) totalH += rh + GAP;
+  totalH += M;
+
+  canvas.width  = TOTAL_W;
+  canvas.height = totalH;
+
+  // FONDO
+  ctx.fillStyle = '#07080f';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // ENCABEZADO
+  ctx.fillStyle = '#0d1020';
+  ctx.fillRect(0, 0, canvas.width, HEADER_H);
+  const grad = ctx.createLinearGradient(M, 0, M + 300 * SCALE, 0);
+  grad.addColorStop(0, '#4fc3c3');
+  grad.addColorStop(1, '#7c6fd4');
+  ctx.fillStyle = grad;
+  ctx.fillRect(M, HEADER_H - 3, 300 * SCALE, 3);
+  ctx.fillStyle = '#4fc3c3';
+  ctx.font = `bold ${28 * SCALE}px Georgia, serif`;
+  ctx.fillText(data.nombre || 'Medicamento', M, 38 * SCALE);
+  ctx.fillStyle = '#8892b0';
+  ctx.font = `${11 * SCALE}px -apple-system, Segoe UI, sans-serif`;
+  ctx.fillText(data.familia || '', M, 58 * SCALE);
+  ctx.fillStyle = '#3a4560';
+  ctx.font = `${9 * SCALE}px monospace`;
+  ctx.fillText('PharmaChem  ·  Groq + Llama 4', M, 78 * SCALE);
+
+  const COLORS = { teal:'#4fc3c3', purple:'#7c6fd4', gold:'#c9a84c', red:'#ef5350' };
+
+  function roundRect(x, y, w, h, r) {
+    ctx.beginPath();
+    ctx.moveTo(x+r,y); ctx.lineTo(x+w-r,y);
+    ctx.quadraticCurveTo(x+w,y,x+w,y+r);
+    ctx.lineTo(x+w,y+h-r);
+    ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);
+    ctx.lineTo(x+r,y+h);
+    ctx.quadraticCurveTo(x,y+h,x,y+h-r);
+    ctx.lineTo(x,y+r);
+    ctx.quadraticCurveTo(x,y,x+r,y);
+    ctx.closePath();
+  }
+
+  let cardY = HEADER_H + GAP;
+
+  for (let row = 0; row < rowHeights.length; row++) {
+    const rowH = rowHeights[row];
+    for (let col = 0; col < COLS; col++) {
+      const idx = row * COLS + col;
+      if (idx >= cardMetas.length) break;
+      const { card, bodyLines, notaLines } = cardMetas[idx];
+      const color = COLORS[card.color] || COLORS.teal;
+      const cx = M + col * (CW + GAP);
+
+      // Sombra
+      ctx.shadowColor = 'rgba(0,0,0,0.5)';
+      ctx.shadowBlur = 15 * SCALE;
+      ctx.shadowOffsetY = 4 * SCALE;
+      ctx.fillStyle = '#131628';
+      roundRect(cx, cardY, CW, rowH, 10 * SCALE);
+      ctx.fill();
+      ctx.shadowColor = 'transparent'; ctx.shadowBlur = 0;
+
+      // Borde color arriba
+      ctx.fillStyle = color;
+      roundRect(cx, cardY, CW, 5 * SCALE, 3 * SCALE);
+      ctx.fill();
+      ctx.fillRect(cx, cardY + 2*SCALE, CW, 3*SCALE);
+
+      // Círculo
+      ctx.beginPath();
+      ctx.arc(cx+28*SCALE, cardY+30*SCALE, 10*SCALE, 0, Math.PI*2);
+      ctx.fillStyle = color+'33'; ctx.fill();
+      ctx.beginPath();
+      ctx.arc(cx+28*SCALE, cardY+30*SCALE, 5*SCALE, 0, Math.PI*2);
+      ctx.fillStyle = color; ctx.fill();
+
+      // Título
+      ctx.fillStyle = color;
+      ctx.font = `bold ${FONT_TITLE}px -apple-system, Segoe UI, sans-serif`;
+      const label = CARD_LABELS[card.titulo] || card.titulo.toUpperCase();
+      ctx.fillText(label, cx+46*SCALE, cardY+35*SCALE);
+
+      // Separador
+      ctx.strokeStyle = color+'44'; ctx.lineWidth = 1*SCALE;
+      ctx.beginPath();
+      ctx.moveTo(cx+CARD_PAD, cardY+48*SCALE);
+      ctx.lineTo(cx+CW-CARD_PAD, cardY+48*SCALE);
+      ctx.stroke();
+
+      // Texto
+      ctx.fillStyle = '#c8d5f0';
+      ctx.font = `${FONT_BODY}px -apple-system, Segoe UI, sans-serif`;
+      let textY = cardY + 64*SCALE;
+      for (const line of bodyLines) { ctx.fillText(line, cx+CARD_PAD, textY); textY += LINE_H; }
+
+      // Nota apuntes
+      if (notaLines.length > 0) {
+        const notaY = textY + 8*SCALE;
+        const notaH = notaLines.length*(LINE_H*0.9) + 20*SCALE;
+        ctx.fillStyle = '#281f08';
+        roundRect(cx+CARD_PAD, notaY, CW-CARD_PAD*2, notaH, 5*SCALE); ctx.fill();
+        ctx.fillStyle = '#c9a84c';
+        ctx.fillRect(cx+CARD_PAD, notaY, 4*SCALE, notaH);
+        ctx.fillStyle = '#c9a84c';
+        ctx.font = `${8.5*SCALE}px -apple-system, Segoe UI, sans-serif`;
+        let ny = notaY + 14*SCALE;
+        for (const nl of notaLines) { ctx.fillText(nl, cx+CARD_PAD+12*SCALE, ny); ny += LINE_H*0.9; }
       }
     }
-    cardY+=rowH+GAP;
+    cardY += rowH + GAP;
   }
+
   return canvas;
 }
 
+// ══════════════════════════════════════════════
+// DESCARGAR IMAGEN
+// ══════════════════════════════════════════════
 async function downloadFlashcardsImage() {
-  const data=S.currentFlashcardData;
-  if(!data?.cards?.length){toast('⚠ No hay flashcards para descargar','warn');return;}
-  toast('⏳ Generando imagen...','normal',8000);
-  const canvas=await buildFlashcardsCanvas(data);
-  const link=document.createElement('a');
-  link.download=`${(data.nombre||'flashcards').replace(/\s+/g,'_')}_farmacologia.png`;
-  link.href=canvas.toDataURL('image/png');link.click();
-  toast('✅ Imagen descargada','ok');
+  const data = S.currentFlashcardData;
+  if (!data?.cards?.length) { toast('⚠ No hay flashcards para descargar', 'warn'); return; }
+  toast('⏳ Generando imagen...', 'normal', 8000);
+  const canvas = await buildFlashcardsCanvas(data);
+  const link = document.createElement('a');
+  link.download = `${(data.nombre || 'flashcards').replace(/\s+/g,'_')}_farmacologia.png`;
+  link.href = canvas.toDataURL('image/png');
+  link.click();
+  toast('✅ Imagen descargada', 'ok');
 }
 
-// ══════════════════════════════
-// QUIZ — botón rápido
-// ══════════════════════════════
-function usarMedicamentosDelResumen() {
-  if(!S.extractedDrugs.length){toast('⚠ Sube un archivo primero para extraer medicamentos','warn');return;}
-  document.getElementById('quizDrugs').value=S.extractedDrugs.slice(0,10).join(', ');
-  toast(`✅ ${S.extractedDrugs.length} medicamentos cargados del resumen`,'ok');
-}
-
-// ══════════════════════════════════════════════
-// MODO REPASO
-// ══════════════════════════════════════════════
-const REPASO={cards:[],current:0,revealed:false,sabidas:0,noSabidas:0};
-
-function iniciarRepaso(){
-  const data=S.currentFlashcardData;
-  const el=document.getElementById('repasoContainer');
-  if(!data?.cards?.length){
-    el.innerHTML=`<div class="empty"><div class="emoji">🃏</div><p>Primero genera flashcards de un medicamento,<br>luego vuelve aquí para repasar</p><button class="btn btn-primary" onclick="showPage('flashcards',document.querySelectorAll('.nav-btn')[1])" style="margin-top:1rem">Ir a Flashcards</button></div>`;
-    return;
-  }
-  REPASO.cards=[...data.cards].sort(()=>Math.random()-0.5);
-  REPASO.current=0;REPASO.revealed=false;REPASO.sabidas=0;REPASO.noSabidas=0;
-  renderRepasoCard();
-}
-
-function renderRepasoCard(){
-  const el=document.getElementById('repasoContainer');
-  const total=REPASO.cards.length,idx=REPASO.current;
-  if(idx>=total){
-    const pct=Math.round(REPASO.sabidas/total*100);
-    const emoji=pct>=80?'🏆':pct>=60?'✅':'📖';
-    el.innerHTML=`<div style="max-width:500px;margin:0 auto;text-align:center">
-      <div style="font-size:4rem;margin-bottom:1rem">${emoji}</div>
-      <h2 style="font-family:'Playfair Display',serif;font-size:2rem;margin-bottom:.5rem;color:var(--accent)">${pct}% dominado</h2>
-      <p style="color:var(--text-dim);margin-bottom:2rem">de ${total} cards — ${REPASO.sabidas} sabidas, ${REPASO.noSabidas} para repasar</p>
-      <div style="display:flex;gap:1rem;justify-content:center;flex-wrap:wrap">
-        <button class="btn btn-primary" onclick="iniciarRepaso()">🔄 Repasar de nuevo</button>
-        <button class="btn btn-secondary" onclick="repasoSoloFalladas()">❌ Solo las que fallé</button>
-      </div></div>`;
-    return;
-  }
-  const card=REPASO.cards[idx];
-  const cm={teal:'#4fc3c3',purple:'#7c6fd4',gold:'#c9a84c',red:'#ef5350'};
-  const col=cm[card.color]||cm.teal;
-  const data=S.currentFlashcardData;
-  el.innerHTML=`<div style="max-width:640px;margin:0 auto">
-    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.2rem;flex-wrap:wrap;gap:.5rem">
-      <span style="font-family:'DM Mono',monospace;font-size:.75rem;color:var(--text-dim)">${data.nombre} · Card ${idx+1} de ${total}</span>
-      <div style="display:flex;gap:.5rem">
-        <span style="font-family:'DM Mono',monospace;font-size:.72rem;padding:.2rem .6rem;background:rgba(38,166,154,.15);color:var(--success);border-radius:6px">✓ ${REPASO.sabidas}</span>
-        <span style="font-family:'DM Mono',monospace;font-size:.72rem;padding:.2rem .6rem;background:rgba(239,83,80,.15);color:var(--danger);border-radius:6px">✗ ${REPASO.noSabidas}</span>
-      </div>
-    </div>
-    <div style="height:4px;background:#1e2545;border-radius:4px;margin-bottom:1.5rem;overflow:hidden">
-      <div style="height:100%;width:${(idx/total)*100}%;background:linear-gradient(90deg,var(--accent),var(--accent3));transition:width .4s"></div>
-    </div>
-    <div style="background:#131628;border:1px solid #1e2545;border-radius:18px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.4)">
-      <div style="padding:1.4rem 1.6rem;border-bottom:1px solid #1e2545;display:flex;align-items:center;gap:.75rem;background:#0d1020">
-        <div style="width:12px;height:12px;border-radius:50%;background:${col};flex-shrink:0"></div>
-        <span style="font-family:'DM Mono',monospace;font-size:.8rem;color:${col};text-transform:uppercase;letter-spacing:.1em;font-weight:600">${card.titulo}</span>
-      </div>
-      <div style="padding:2rem 1.6rem;text-align:center;min-height:80px;display:flex;align-items:center;justify-content:center">
-        <p style="color:var(--text-dim);font-size:1rem;font-style:italic">¿Cuál es el <strong style="color:${col}">${card.titulo.toLowerCase()}</strong> de <strong style="color:var(--text)">${data.nombre}</strong>?</p>
-      </div>
-      <div id="repasoRespuesta" style="border-top:1px solid #1e2545;padding:1.4rem 1.6rem;display:${REPASO.revealed?'block':'none'}">
-        <p style="line-height:1.7;color:var(--text)">${card.contenido}</p>
-        ${card.enApuntes&&card.notaApuntes?`<div style="margin-top:1rem;padding:.8rem 1rem;background:#1a130a;border-left:3px solid #c9a84c;border-radius:0 8px 8px 0"><div style="font-family:'DM Mono',monospace;font-size:.65rem;color:#c9a84c;margin-bottom:.3rem">📝 TUS APUNTES</div><p style="font-size:.9rem;color:#c9a84c">${card.notaApuntes}</p></div>`:''}
-      </div>
-      <div style="padding:1.2rem 1.6rem;border-top:1px solid #1e2545;display:flex;gap:.75rem;justify-content:center;flex-wrap:wrap">
-        ${!REPASO.revealed?`<button class="btn btn-primary" onclick="revelarRepaso()" style="min-width:180px">👁 Ver respuesta</button>`:`
-        <button class="btn btn-secondary" onclick="marcarRepaso(false)" style="border-color:var(--danger);color:var(--danger);min-width:140px"
-          onmouseover="this.style.background='rgba(239,83,80,.1)'" onmouseout="this.style.background='transparent'">✗ No lo sabía</button>
-        <button class="btn btn-secondary" onclick="marcarRepaso(true)" style="border-color:var(--success);color:var(--success);min-width:140px"
-          onmouseover="this.style.background='rgba(38,166,154,.1)'" onmouseout="this.style.background='transparent'">✓ Lo sabía</button>`}
-      </div>
-    </div>
-  </div>`;
-}
-
-function revelarRepaso(){
-  REPASO.revealed=true;
-  document.getElementById('repasoRespuesta').style.display='block';
-  renderRepasoCard();
-}
-
-function marcarRepaso(sabia){
-  if(sabia)REPASO.sabidas++;
-  else{REPASO.noSabidas++;REPASO.cards.push(REPASO.cards[REPASO.current]);}
-  REPASO.current++;REPASO.revealed=false;
-  if(REPASO.cards.length>S.currentFlashcardData.cards.length*3)REPASO.current=REPASO.cards.length;
-  renderRepasoCard();
-}
-
-function repasoSoloFalladas(){
-  const falladas=REPASO.cards.slice(S.currentFlashcardData.cards.length);
-  if(!falladas.length){toast('¡No fallaste ninguna! 🏆','ok');return;}
-  REPASO.cards=[...new Set(falladas)];
-  REPASO.current=0;REPASO.revealed=false;REPASO.sabidas=0;REPASO.noSabidas=0;
-  renderRepasoCard();
-}
-
-// ══════════════════════════════
-// HISTORY
-// ══════════════════════════════
-function renderHistory(){
-  document.getElementById('drugHistory').innerHTML=S.history.map(d=>
+function renderHistory() {
+  document.getElementById('drugHistory').innerHTML = S.history.map(d =>
     `<span class="drug-pill" onclick="document.getElementById('drugInput').value='${d}';searchDrug()">${d}</span>`
   ).join('');
 }
@@ -914,77 +956,91 @@ function renderHistory(){
 // ══════════════════════════════
 // QUIZ
 // ══════════════════════════════
-async function generateQuiz(){
-  const drugs=document.getElementById('quizDrugs').value.trim();
-  const count=parseInt(document.getElementById('quizCount').value)||10;
-  const difficulty=document.getElementById('quizDiff').value;
-  const type=document.getElementById('quizType').value;
-  if(!drugs){toast('⚠ Escribe al menos un medicamento');return;}
+async function generateQuiz() {
+  const drugs = document.getElementById('quizDrugs').value.trim();
+  const count = parseInt(document.getElementById('quizCount').value) || 10;
+  const difficulty = document.getElementById('quizDiff').value;
+  const type = document.getElementById('quizType').value;
+  if(!drugs) { toast('⚠ Escribe al menos un medicamento'); return; }
+
   document.getElementById('quizLoader').classList.add('active');
-  document.getElementById('quizContainer').innerHTML='';
-  S.answers={};S.submitted=false;
-  try{
-    const res=await fetch('/api/quiz',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({drugs,count,difficulty,type})});
-    const data=await res.json();
-    if(!res.ok)throw new Error(data.error||`Error ${res.status}`);
-    S.quiz=Array.isArray(data)?data:[];
-    if(!S.quiz.length)throw new Error('No se generaron preguntas. Intenta de nuevo.');
+  document.getElementById('quizContainer').innerHTML = '';
+  S.answers = {}; S.submitted = false;
+
+  try {
+    const res = await fetch('/api/quiz', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ drugs, count, difficulty, type })
+    });
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error || `Error ${res.status}`);
+    S.quiz = Array.isArray(data) ? data : [];
+    if(!S.quiz.length) throw new Error('No se generaron preguntas. Intenta de nuevo.');
     renderQuiz(S.quiz);
-  }catch(err){
-    document.getElementById('quizContainer').innerHTML=`<div class="empty"><div class="emoji">❌</div><div class="err-box">${err.message}</div></div>`;
-    toast('❌ '+err.message,'warn',6000);
-  }finally{
+  } catch(err) {
+    document.getElementById('quizContainer').innerHTML = `<div class="empty"><div class="emoji">❌</div><div class="err-box">${err.message}</div></div>`;
+    toast('❌ ' + err.message, 'warn', 6000);
+  } finally {
     document.getElementById('quizLoader').classList.remove('active');
   }
 }
 
-function renderQuiz(qs){
-  const L=['A','B','C','D'];
-  let html=qs.map((q,qi)=>`
+function renderQuiz(qs) {
+  const L = ['A','B','C','D'];
+  let html = qs.map((q, qi) => `
     <div class="question-card" style="animation-delay:${qi*.04}s">
       <div class="q-num">Pregunta ${qi+1} de ${qs.length}</div>
       <div class="q-text">${q.pregunta}</div>
       <div class="q-src">📚 ${q.fuente}</div>
       <div class="options" id="opts-${qi}">
-        ${(q.opciones||[]).map((o,oi)=>`
+        ${(q.opciones||[]).map((o,oi) => `
           <div class="opt" onclick="selectOpt(${qi},${oi})">
             <div class="opt-letter">${L[oi]}</div>
             <div class="opt-text">${o}</div>
           </div>`).join('')}
       </div>
-      <div class="expl" id="exp-${qi}">${q.explicacion||''}</div>
+      <div class="expl" id="exp-${qi}">${q.explicacion || ''}</div>
     </div>`).join('');
-  html+=`<div style="display:flex;gap:1rem;margin-top:1rem;flex-wrap:wrap">
-    <button class="btn btn-primary" onclick="submitQuiz()">✅ Corregir Quiz</button>
-    <button class="btn btn-secondary" onclick="generateQuiz()">🔄 Nuevo Quiz</button>
-  </div><div id="quizResult"></div>`;
-  document.getElementById('quizContainer').innerHTML=html;
+
+  html += `
+    <div style="display:flex;gap:1rem;margin-top:1rem;flex-wrap:wrap">
+      <button class="btn btn-primary" onclick="submitQuiz()">✅ Corregir Quiz</button>
+      <button class="btn btn-secondary" onclick="generateQuiz()">🔄 Nuevo Quiz</button>
+    </div>
+    <div id="quizResult"></div>`;
+
+  document.getElementById('quizContainer').innerHTML = html;
 }
 
-function selectOpt(qi,oi){
-  if(S.submitted)return;
-  S.answers[qi]=oi;
-  document.querySelectorAll(`#opts-${qi} .opt`).forEach((el,i)=>el.classList.toggle('selected',i===oi));
+function selectOpt(qi, oi) {
+  if(S.submitted) return;
+  S.answers[qi] = oi;
+  document.querySelectorAll(`#opts-${qi} .opt`).forEach((el,i) => el.classList.toggle('selected', i===oi));
 }
 
-function submitQuiz(){
-  if(S.submitted)return;
-  const answered=Object.keys(S.answers).length;
-  if(answered<S.quiz.length){toast(`⚠ Responde todas (${answered}/${S.quiz.length})`);return;}
-  S.submitted=true;let correct=0;
-  S.quiz.forEach((q,qi)=>{
-    const sel=S.answers[qi],ok=sel===q.respuesta;
-    if(ok)correct++;
-    document.querySelectorAll(`#opts-${qi} .opt`).forEach((el,oi)=>{
-      el.onclick=null;
-      if(oi===q.respuesta)el.classList.add('correct');
-      else if(oi===sel&&!ok)el.classList.add('wrong');
+function submitQuiz() {
+  if(S.submitted) return;
+  const answered = Object.keys(S.answers).length;
+  if(answered < S.quiz.length) { toast(`⚠ Responde todas (${answered}/${S.quiz.length})`); return; }
+  S.submitted = true;
+  let correct = 0;
+
+  S.quiz.forEach((q, qi) => {
+    const sel = S.answers[qi], ok = sel === q.respuesta;
+    if(ok) correct++;
+    document.querySelectorAll(`#opts-${qi} .opt`).forEach((el,oi) => {
+      el.onclick = null;
+      if(oi === q.respuesta) el.classList.add('correct');
+      else if(oi === sel && !ok) el.classList.add('wrong');
     });
     document.getElementById(`exp-${qi}`).classList.add('show');
   });
-  const tot=S.quiz.length,pct=Math.round(correct/tot*100);
-  const g=pct>=90?'🏆 Excelente':pct>=70?'✅ Muy bien':pct>=50?'📖 Regular':'🔄 Necesitas repasar';
-  document.getElementById('quizResult').innerHTML=`
+
+  const tot = S.quiz.length, pct = Math.round(correct/tot*100);
+  const g = pct>=90 ? '🏆 Excelente' : pct>=70 ? '✅ Muy bien' : pct>=50 ? '📖 Regular' : '🔄 Necesitas repasar';
+
+  document.getElementById('quizResult').innerHTML = `
     <div class="quiz-results" style="margin-top:2rem">
       <div class="score-ring">${pct}%</div>
       <h2 style="font-family:'Playfair Display',serif;margin-bottom:.5rem">${g}</h2>
@@ -995,27 +1051,24 @@ function submitQuiz(){
       </div>
       <button class="btn btn-gold" onclick="generateQuiz()" style="margin-top:1rem">🔄 Intentar de nuevo</button>
     </div>`;
-  document.getElementById('quizResult').scrollIntoView({behavior:'smooth',block:'center'});
+  document.getElementById('quizResult').scrollIntoView({ behavior:'smooth', block:'center' });
 }
 
 // ══════════════════════════════
 // FILE READERS
 // ══════════════════════════════
-const readAsDataURL=f=>new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsDataURL(f);});
-const readAsText=f=>new Promise(r=>{const fr=new FileReader();fr.onload=e=>r(e.target.result);fr.readAsText(f);});
+const readAsDataURL = f => new Promise(r => { const fr=new FileReader(); fr.onload=e=>r(e.target.result); fr.readAsDataURL(f); });
+const readAsText = f => new Promise(r => { const fr=new FileReader(); fr.onload=e=>r(e.target.result); fr.readAsText(f); });
 
 // ══════════════════════════════
 // INIT
 // ══════════════════════════════
-(function init(){
+(function init() {
   renderApuntesList();
   renderHistory();
-  if(S.resumen){
-    document.getElementById('apuntesResumen').innerHTML=`<div style="line-height:1.8">${S.resumen}</div>`;
-    extractDrugsFromResumen(S.resumen);
-  }
+  if(S.resumen) document.getElementById('apuntesResumen').innerHTML = `<div style="line-height:1.8">${S.resumen}</div>`;
   checkServer();
-  setInterval(checkServer,30000);
+  setInterval(checkServer, 30000);
 })();
 </script>
 </body>
