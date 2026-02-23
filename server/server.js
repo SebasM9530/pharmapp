@@ -109,7 +109,7 @@ S  fiel al texto original. No agregues información extra. Organiza por seccione
 
     const resumen = await groq(
       "Eres experto en farmacología clínica. Analizas apuntes universitarios. Respondes en español.",
-      `Analiza estos apuntes de farmacología (transcritos de apuntes manuscritos por OCR) y genera un resumen estructurado con HTML limpio usando solo: <h4>, <strong>, <ul>, <li>, <p>
+      `Analiza estos apuntes de farmacología, (transcritos de apuntes manuscritos por OCR)  y genera un resumen estructurado con HTML limpio (Todos los medicamentos que son escaneados mediante OCR deben ser mencionados en el resumen, tengan o no información si estan presentes en el documento deben ser mencionados) usando solo: <h4>, <strong>, <ul>, <li>, <p> 
 
 APUNTES:
 ${allText.slice(0, 6000)}
