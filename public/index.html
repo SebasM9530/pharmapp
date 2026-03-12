@@ -1057,8 +1057,11 @@ async function generateQuiz() {
 
 function renderQuiz(qs) {
   const L = ['A','B','C','D'];
+  // S.graded[qi] = true cuando esa pregunta ya fue calificada individualmente
+  S.graded = {};
+
   let html = qs.map((q, qi) => `
-    <div class="question-card" style="animation-delay:${qi*.04}s">
+    <div class="question-card" style="animation-delay:${qi*.04}s" id="qcard-${qi}">
       <div class="q-num">Pregunta ${qi+1} de ${qs.length}</div>
       <div class="q-text">${q.pregunta}</div>
       <div class="q-src">📚 ${q.fuente}</div>
@@ -1069,12 +1072,16 @@ function renderQuiz(qs) {
             <div class="opt-text">${o}</div>
           </div>`).join('')}
       </div>
+      <div style="margin-top:.75rem;display:flex;align-items:center;gap:.75rem;flex-wrap:wrap">
+        <button id="btnGrade-${qi}" class="btn btn-primary" onclick="gradeOne(${qi})" style="font-size:.75rem;padding:.5rem 1.1rem">✅ Calificar</button>
+        <span id="badge-${qi}" style="display:none;font-family:'DM Mono',monospace;font-size:.8rem;padding:.3rem .85rem;border-radius:8px"></span>
+      </div>
       <div class="expl" id="exp-${qi}">${q.explicacion || ''}</div>
     </div>`).join('');
 
   html += `
-    <div style="display:flex;gap:1rem;margin-top:1rem;flex-wrap:wrap">
-      <button class="btn btn-primary" onclick="submitQuiz()">✅ Corregir Quiz</button>
+    <div style="display:flex;gap:1rem;margin-top:1.5rem;flex-wrap:wrap" id="quizActions">
+      <button class="btn btn-gold" onclick="submitQuiz()">📊 Ver resultado final</button>
       <button class="btn btn-secondary" onclick="generateQuiz()">🔄 Nuevo Quiz</button>
     </div>
     <div id="quizResult"></div>`;
@@ -1083,28 +1090,55 @@ function renderQuiz(qs) {
 }
 
 function selectOpt(qi, oi) {
-  if(S.submitted) return;
+  if(S.graded[qi]) return; // ya calificada, no se puede cambiar
   S.answers[qi] = oi;
   document.querySelectorAll(`#opts-${qi} .opt`).forEach((el,i) => el.classList.toggle('selected', i===oi));
 }
 
-function submitQuiz() {
-  if(S.submitted) return;
-  const answered = Object.keys(S.answers).length;
-  if(answered < S.quiz.length) { toast(`⚠ Responde todas (${answered}/${S.quiz.length})`); return; }
-  S.submitted = true;
-  let correct = 0;
+// Califica UNA pregunta al instante
+function gradeOne(qi) {
+  if(S.graded[qi]) return;
+  if(S.answers[qi] === undefined) { toast('⚠ Selecciona una opción primero', 'warn'); return; }
 
-  S.quiz.forEach((q, qi) => {
-    const sel = S.answers[qi], ok = sel === q.respuesta;
-    if(ok) correct++;
-    document.querySelectorAll(`#opts-${qi} .opt`).forEach((el,oi) => {
-      el.onclick = null;
-      if(oi === q.respuesta) el.classList.add('correct');
-      else if(oi === sel && !ok) el.classList.add('wrong');
-    });
-    document.getElementById(`exp-${qi}`).classList.add('show');
+  S.graded[qi] = true;
+  const q   = S.quiz[qi];
+  const sel = S.answers[qi];
+  const ok  = sel === q.respuesta;
+
+  // Colorear opciones
+  document.querySelectorAll(`#opts-${qi} .opt`).forEach((el,oi) => {
+    el.onclick = null;
+    if(oi === q.respuesta) el.classList.add('correct');
+    else if(oi === sel && !ok) el.classList.add('wrong');
   });
+
+  // Mostrar explicación
+  document.getElementById(`exp-${qi}`).classList.add('show');
+
+  // Ocultar botón calificar, mostrar badge
+  document.getElementById(`btnGrade-${qi}`).style.display = 'none';
+  const badge = document.getElementById(`badge-${qi}`);
+  badge.style.display = 'inline-flex';
+  if(ok) {
+    badge.textContent = '✓ Correcta';
+    badge.style.cssText += 'background:rgba(38,166,154,.15);color:var(--success);border:1px solid rgba(38,166,154,.3);';
+  } else {
+    badge.textContent = '✗ Incorrecta';
+    badge.style.cssText += 'background:rgba(239,83,80,.12);color:var(--danger);border:1px solid rgba(239,83,80,.3);';
+  }
+}
+
+function submitQuiz() {
+  // Calificar automáticamente las que no se calificaron aún (por si el user saltó alguna)
+  S.quiz.forEach((_, qi) => {
+    if(!S.graded[qi] && S.answers[qi] !== undefined) gradeOne(qi);
+  });
+
+  const answered = Object.keys(S.answers).length;
+  if(answered < S.quiz.length) { toast(`⚠ Responde todas las preguntas primero (${answered}/${S.quiz.length})`, 'warn'); return; }
+
+  let correct = 0;
+  S.quiz.forEach((q, qi) => { if(S.answers[qi] === q.respuesta) correct++; });
 
   const tot = S.quiz.length, pct = Math.round(correct/tot*100);
   const g = pct>=90 ? '🏆 Excelente' : pct>=70 ? '✅ Muy bien' : pct>=50 ? '📖 Regular' : '🔄 Necesitas repasar';

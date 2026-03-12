@@ -13,14 +13,13 @@ const __dirname  = path.dirname(__filename);
 
 const app = express();
 app.use(cors());
-app.use(express.json({ limit: "60mb" }));  // grande para recibir imágenes base64
+app.use(express.json({ limit: "60mb" }));
 app.use(express.static(path.join(__dirname, "../public")));
 app.get("/", (_, res) => res.sendFile(path.join(__dirname, "../public/index.html")));
 
 const MODEL = "meta-llama/llama-4-scout-17b-16e-instruct";
 let globalChunks = [];
 
-// ── multer solo para imágenes directas ──
 const upload = multer({
   storage: multer.diskStorage({
     destination: (_, __, cb) => {
@@ -77,10 +76,6 @@ async function groqVision(base64, mime, prompt) {
   return r.data.choices[0].message.content;
 }
 
-// ─────────────────────────────────────────────
-// ENDPOINT: recibe páginas ya convertidas a imagen por el frontend
-// body: { pages: [{base64, mime, pageNum}], filename }
-// ─────────────────────────────────────────────
 app.post("/api/upload-pages", async (req, res) => {
   const { pages, filename } = req.body;
   if (!pages?.length) return res.status(400).json({ error: "No se recibieron páginas." });
@@ -94,7 +89,7 @@ app.post("/api/upload-pages", async (req, res) => {
         `Eres experto en OCR de apuntes médicos en español.
 Transcribe TODO el texto visible en esta imagen de apuntes universitarios de farmacología.
 Incluye: nombres de fármacos, mecanismos de acción, indicaciones, contraindicaciones, RAM, dosis, clasificaciones, flechas explicativas, tablas, notas al margen.
-S  fiel al texto original. No agregues información extra. Organiza por secciones si las hay.`
+Sé fiel al texto original. No agregues información extra. Organiza por secciones si las hay.`
       );
       allText += `\n--- Página ${p.pageNum} ---\n${txt}\n`;
       console.log(`  pág ${p.pageNum} OK: ${txt.length} chars`);
@@ -109,7 +104,7 @@ S  fiel al texto original. No agregues información extra. Organiza por seccione
 
     const resumen = await groq(
       "Eres experto en farmacología clínica. Analizas apuntes universitarios. Respondes en español.",
-      `Analiza estos apuntes de farmacología, (transcritos de apuntes manuscritos por OCR)  y genera un resumen estructurado con HTML limpio (Todos los medicamentos que son escaneados mediante OCR deben ser mencionados en el resumen, tengan o no información si estan presentes en el documento deben ser mencionados) usando solo: <h4>, <strong>, <ul>, <li>, <p> 
+      `Analiza estos apuntes de farmacología (transcritos de apuntes manuscritos por OCR) y genera un resumen estructurado con HTML limpio usando solo: <h4>, <strong>, <ul>, <li>, <p>
 
 APUNTES:
 ${allText.slice(0, 6000)}
@@ -124,7 +119,7 @@ Estructura exacta:
 <h4>📌 Puntos importantes para el examen</h4>
 <ul><li>punto específico extraído de los apuntes</li></ul>
 
-S  específico. En español.`
+Sé específico. En español.`
     );
 
     res.json({ resumen, charCount: allText.length, totalChunks: globalChunks.length });
@@ -134,9 +129,6 @@ S  específico. En español.`
   }
 });
 
-// ─────────────────────────────────────────────
-// ENDPOINT: imagen JPG/PNG directa
-// ─────────────────────────────────────────────
 app.post("/api/upload-image", upload.single("file"), async (req, res) => {
   if (!req.file) return res.status(400).json({ error: "No se recibió imagen." });
   console.log(`🖼 upload-image: ${req.file.originalname}`);
@@ -159,9 +151,6 @@ app.post("/api/upload-image", upload.single("file"), async (req, res) => {
   }
 });
 
-// ─────────────────────────────────────────────
-// ENDPOINT: texto plano / TXT
-// ─────────────────────────────────────────────
 app.post("/api/analyze-text", async (req, res) => {
   const { text } = req.body;
   if (!text?.trim()) return res.status(400).json({ error: "Texto vacío" });
@@ -175,13 +164,9 @@ app.post("/api/analyze-text", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message }); }
 });
 
-// ─────────────────────────────────────────────
 app.post("/api/clear-notes", (_, res) => { globalChunks = []; res.json({ ok: true }); });
 app.get("/api/health", (_, res) => res.json({ ok: true, model: MODEL, chunks: globalChunks.length }));
 
-// ─────────────────────────────────────────────
-// FLASHCARDS
-// ─────────────────────────────────────────────
 app.post("/api/flashcards", async (req, res) => {
   const { drug } = req.body;
   if (!drug) return res.status(400).json({ error: "Fármaco requerido" });
@@ -224,14 +209,14 @@ Responde ÚNICAMENTE con este JSON sin texto extra ni backticks:
 });
 
 // ─────────────────────────────────────────────
-// QUIZ — por lotes para soportar hasta 20 preguntas
+// QUIZ — por lotes, con instrucción estricta anti-repetición
 // ─────────────────────────────────────────────
 app.post("/api/quiz", async (req, res) => {
   const { drugs, count = 10, difficulty = "intermedia", type = "mixto" } = req.body;
   if (!drugs) return res.status(400).json({ error: "Medicamentos requeridos" });
 
   const total = Math.min(parseInt(count) || 10, 20);
-  const BATCH = 5; // generamos de 5 en 5 para evitar truncamiento
+  const BATCH = 5;
 
   const chunks = relevantChunks(drugs, globalChunks, 3);
   const ctx = chunks.length ? `\nApuntes de la estudiante:\n${chunks.join("\n").slice(0, 1000)}` : "";
@@ -256,6 +241,11 @@ app.post("/api/quiz", async (req, res) => {
       const batchSize = Math.min(BATCH, total - allQuestions.length);
       if (batchSize <= 0) break;
 
+      // Construir lista de enunciados ya generados para evitar repetición
+      const prevEnunciados = allQuestions.length > 0
+        ? `\nPREGUNTAS YA GENERADAS (NO repitas ni parafrasees ninguna de estas):\n${allQuestions.map((q,i) => `${i+1}. ${q.pregunta}`).join("\n")}\n`
+        : "";
+
       console.log(`  Quiz lote ${b+1}/${batches}: ${batchSize} preguntas...`);
 
       const raw = await groq(
@@ -263,10 +253,14 @@ app.post("/api/quiz", async (req, res) => {
         `Genera EXACTAMENTE ${batchSize} preguntas de opción múltiple sobre: ${drugs}
 Dificultad: ${diffs[difficulty]}
 Tipo: ${types[type]}${ctx}
-
-Para dificultad avanzada: incluye caso clínico completo en el enunciado (paciente con edad, sexo, síntomas, antecedentes relevantes, resultados de laboratorio si aplica).
-Las opciones deben ser plausibles y el distractores bien elaborados.
-La explicación debe ser educativa y mencionar el mecanismo farmacológico.
+${prevEnunciados}
+REGLAS OBLIGATORIAS:
+- NUNCA repitas una pregunta ni hagas una similar o parafraseada a las ya generadas
+- Cada pregunta debe evaluar un aspecto DIFERENTE del medicamento (no repitas el mismo concepto)
+- Las ${batchSize} preguntas deben ser completamente únicas entre sí
+- Para dificultad avanzada: incluye caso clínico completo en el enunciado (paciente con edad, sexo, síntomas, antecedentes relevantes, resultados de laboratorio si aplica)
+- Las opciones deben ser plausibles y los distractores bien elaborados
+- La explicación debe ser educativa y mencionar el mecanismo farmacológico
 
 Responde SOLO con el array JSON sin texto antes ni después:
 [{"pregunta":"enunciado completo y detallado","fuente":"Goodman & Gilman 14a Ed. / Katzung 15a Ed. / Rang & Dale 9a Ed.","opciones":["opción A completa","opción B completa","opción C completa","opción D completa"],"respuesta":0,"explicacion":"explicación detallada del mecanismo y por qué las otras opciones son incorrectas"}]
@@ -282,7 +276,6 @@ CRÍTICO: JSON debe estar COMPLETO y ser válido. Cierra TODOS los corchetes y l
       try {
         batch = JSON.parse(m[0]);
       } catch {
-        // Reparar JSON truncado
         const last = m[0].lastIndexOf("},");
         if (last > 5) {
           try { batch = JSON.parse(m[0].slice(0, last + 1) + "]"); }
@@ -290,11 +283,18 @@ CRÍTICO: JSON debe estar COMPLETO y ser válido. Cierra TODOS los corchetes y l
         } else continue;
       }
 
-      if (Array.isArray(batch)) allQuestions.push(...batch);
+      if (Array.isArray(batch)) {
+        // Deduplicar contra lo ya acumulado (por si el modelo ignoró la instrucción)
+        const prevTexts = allQuestions.map(q => q.pregunta.slice(0, 60).toLowerCase());
+        const filtered = batch.filter(q =>
+          !prevTexts.some(p => q.pregunta.slice(0, 60).toLowerCase().includes(p.slice(0, 40)) || p.includes(q.pregunta.slice(0, 40).toLowerCase()))
+        );
+        allQuestions.push(...filtered);
+      }
     }
 
     if (!allQuestions.length) throw new Error("No se generaron preguntas. Intenta de nuevo.");
-    res.json(allQuestions);
+    res.json(allQuestions.slice(0, total));
 
   } catch (err) {
     console.error("❌ quiz:", err.response?.data || err.message);
