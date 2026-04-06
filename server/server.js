@@ -47,16 +47,30 @@ function relevantChunks(q, chunks, max = 4) {
     .filter(x => x.s > 0).sort((a, b) => b.s - a.s).slice(0, max).map(x => x.c);
 }
 
-async function groq(system, user, temp = 0.35) {
-  const r = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
-    model: MODEL,
-    messages: [{ role: "system", content: system }, { role: "user", content: user }],
-    temperature: temp, max_tokens: 4096
-  }, {
-    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
-    timeout: 90000
-  });
-  return r.data.choices[0].message.content;
+async function groq(system, user, temp = 0.35, maxAttempts = 4) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      const r = await axios.post("https://api.groq.com/openai/v1/chat/completions", {
+        model: MODEL,
+        messages: [{ role: "system", content: system }, { role: "user", content: user }],
+        temperature: temp, max_tokens: 4096
+      }, {
+        headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+        timeout: 90000
+      });
+      return r.data.choices[0].message.content;
+    } catch (err) {
+      const status = err.response?.status;
+      if ((status === 429 || status === 503) && attempt < maxAttempts - 1) {
+        const retryAfter = err.response?.headers?.["retry-after"];
+        const wait = retryAfter ? parseInt(retryAfter) * 1000 : (attempt + 1) * 12000;
+        console.log(`  ⏳ Groq rate limit (${status}), esperando ${wait/1000}s... (intento ${attempt+1}/${maxAttempts})`);
+        await new Promise(r => setTimeout(r, wait));
+      } else {
+        throw err;
+      }
+    }
+  }
 }
 
 async function groqVision(base64, mime, prompt) {
