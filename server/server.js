@@ -167,6 +167,95 @@ app.post("/api/analyze-text", async (req, res) => {
 app.post("/api/clear-notes", (_, res) => { globalChunks = []; res.json({ ok: true }); });
 app.get("/api/health", (_, res) => res.json({ ok: true, model: MODEL, chunks: globalChunks.length }));
 
+// ─────────────────────────────────────────────
+// Helper: groqVision con reintentos automáticos en 429
+// ─────────────────────────────────────────────
+async function groqVisionWithRetry(base64, mime, prompt, maxAttempts = 3) {
+  for (let attempt = 0; attempt < maxAttempts; attempt++) {
+    try {
+      return await groqVision(base64, mime, prompt);
+    } catch (err) {
+      const status = err.response?.status;
+      if ((status === 429 || status === 503) && attempt < maxAttempts - 1) {
+        const wait = (attempt + 1) * 10000; // 10s, 20s
+        console.log(`  ⏳ Rate limit (${status}), esperando ${wait/1000}s... (intento ${attempt+1}/${maxAttempts})`);
+        await new Promise(r => setTimeout(r, wait));
+      } else {
+        throw err;
+      }
+    }
+  }
+}
+
+// ─────────────────────────────────────────────
+// NUEVO: OCR de UNA sola página (llamado página por página desde el frontend)
+// body: { page: {base64, mime, pageNum} | {type:'text', content, pageNum}, filename }
+// ─────────────────────────────────────────────
+app.post("/api/upload-page-single", async (req, res) => {
+  const { page, filename } = req.body;
+  if (!page) return res.status(400).json({ error: "No se recibió la página." });
+
+  // Si ya es texto digital, devolver directo sin llamar a Groq Vision
+  if (page.type === 'text') {
+    globalChunks.push(...chunk(page.content, 700));
+    return res.json({ text: page.content });
+  }
+
+  if (!page.base64) return res.status(400).json({ error: "Página sin imagen." });
+
+  console.log(`📄 OCR pág ${page.pageNum} de "${filename}"`);
+  try {
+    const txt = await groqVisionWithRetry(page.base64, page.mime,
+      `Eres experto en OCR de apuntes médicos en español.
+Transcribe TODO el texto visible en esta imagen de apuntes universitarios de farmacología.
+Incluye: nombres de fármacos, mecanismos de acción, indicaciones, contraindicaciones, RAM, dosis, clasificaciones, tablas, notas al margen.
+Sé fiel al texto original. No agregues información extra. Organiza por secciones si las hay.`
+    );
+    globalChunks.push(...chunk(txt, 700));
+    console.log(`  ✅ pág ${page.pageNum}: ${txt.length} chars`);
+    res.json({ text: txt });
+  } catch (err) {
+    const status = err.response?.status;
+    console.error(`❌ OCR pág ${page.pageNum}:`, err.response?.data || err.message);
+    res.status(status || 500).json({ error: err.response?.data?.error?.message || err.message });
+  }
+});
+
+// ─────────────────────────────────────────────
+// NUEVO: Generar resumen a partir de texto ya extraído (llamado al final del PDF)
+// body: { text, filename }
+// ─────────────────────────────────────────────
+app.post("/api/summarize-text", async (req, res) => {
+  const { text, filename } = req.body;
+  if (!text?.trim()) return res.status(400).json({ error: "Texto vacío." });
+  console.log(`📝 Resumiendo "${filename}" (${text.length} chars)`);
+  try {
+    const resumen = await groq(
+      "Eres experto en farmacología clínica. Analizas apuntes universitarios. Respondes en español.",
+      `Analiza estos apuntes de farmacología y genera un resumen estructurado con HTML limpio usando solo: <h4>, <strong>, <ul>, <li>, <p>
+
+APUNTES:
+${text.slice(0, 7000)}
+
+Estructura exacta:
+<h4>💊 Medicamentos y fármacos mencionados</h4>
+<ul><li><strong>Fármaco</strong>: contexto/uso en los apuntes</li></ul>
+
+<h4>🔬 Conceptos farmacológicos clave</h4>
+<ul><li><strong>Concepto</strong>: descripción de los apuntes</li></ul>
+
+<h4>📌 Puntos importantes para el examen</h4>
+<ul><li>punto específico extraído de los apuntes</li></ul>
+
+Sé específico. En español.`
+    );
+    res.json({ resumen, charCount: text.length });
+  } catch (err) {
+    console.error("❌ summarize-text:", err.message);
+    res.status(500).json({ error: err.message });
+  }
+});
+
 app.post("/api/flashcards", async (req, res) => {
   const { drug } = req.body;
   if (!drug) return res.status(400).json({ error: "Fármaco requerido" });

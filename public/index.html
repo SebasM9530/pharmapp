@@ -364,7 +364,7 @@ async function handleFiles(files) {
 }
 
 async function uploadPDF(file, id) {
-  toast(`⏳ Convirtiendo páginas de ${file.name}...`);
+  toast(`⏳ Cargando PDF: ${file.name}...`);
   setProgress(5, 'Cargando PDF...');
   try {
     if (!window.pdfjsLib) {
@@ -380,12 +380,12 @@ async function uploadPDF(file, id) {
 
     const arrayBuffer = await file.arrayBuffer();
     const pdf = await window.pdfjsLib.getDocument({ data: arrayBuffer }).promise;
-    const totalPages = Math.min(pdf.numPages, 9);
-    const pages = [];
+    const totalPages = Math.min(pdf.numPages, 10);
 
+    // ── Paso 1: renderizar todas las páginas a texto o imagen ligera ──
+    const pages = [];
     for (let i = 1; i <= totalPages; i++) {
-      setProgress(Math.round(5 + (i / totalPages) * 50),
-        `Renderizando página ${i}/${totalPages}...`);
+      setProgress(Math.round(5 + (i / totalPages) * 25), `Renderizando página ${i}/${totalPages}...`);
       const page = await pdf.getPage(i);
       const tc = await page.getTextContent();
       const txt = tc.items.map(it => it.str).join(' ').trim();
@@ -393,32 +393,77 @@ async function uploadPDF(file, id) {
         pages.push({ type: 'text', content: txt, pageNum: i });
         continue;
       }
-      const viewport = page.getViewport({ scale: 1.8 });
+      // Escaneado: escala reducida (1.2) y calidad JPEG baja (0.65) para no saturar la API
+      const viewport = page.getViewport({ scale: 1.2 });
       const canvas = document.createElement('canvas');
       canvas.width  = viewport.width;
       canvas.height = viewport.height;
       await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
-      const base64 = canvas.toDataURL('image/jpeg', 0.85).split(',')[1];
+      const base64 = canvas.toDataURL('image/jpeg', 0.65).split(',')[1];
       pages.push({ base64, mime: 'image/jpeg', pageNum: i });
     }
 
-    setProgress(60, 'Enviando a Groq Vision para OCR...');
-    const res = await fetch('/api/upload-pages', {
+    // ── Paso 2: mandar páginas de a UNA al servidor para evitar 429 ──
+    let allText = '';
+    const imgPages = pages.filter(p => p.base64); // solo las escaneadas necesitan OCR
+    const txtPages = pages.filter(p => p.type === 'text');
+
+    // Páginas de texto digital: concatenar directo
+    txtPages.forEach(p => { allText += `\n--- Página ${p.pageNum} ---\n${p.content}\n`; });
+
+    // Páginas escaneadas: OCR una por una con pausa entre llamadas
+    for (let i = 0; i < imgPages.length; i++) {
+      const p = imgPages[i];
+      const pct = Math.round(30 + ((i + 1) / Math.max(imgPages.length, 1)) * 55);
+      setProgress(pct, `OCR página ${p.pageNum}/${totalPages} (${i+1}/${imgPages.length})...`);
+
+      // Reintentos con backoff en caso de 429
+      let ocrText = '';
+      for (let attempt = 0; attempt < 3; attempt++) {
+        try {
+          const res = await fetch('/api/upload-page-single', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ page: p, filename: file.name })
+          });
+          if (res.status === 429 || res.status === 503) {
+            const wait = (attempt + 1) * 8000;
+            setProgress(pct, `Rate limit — esperando ${wait/1000}s antes de reintentar...`);
+            await new Promise(r => setTimeout(r, wait));
+            continue;
+          }
+          const data = await res.json();
+          if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+          ocrText = data.text || '';
+          break;
+        } catch(e) {
+          if (attempt === 2) throw e;
+          await new Promise(r => setTimeout(r, 5000));
+        }
+      }
+      allText += `\n--- Página ${p.pageNum} ---\n${ocrText}\n`;
+
+      // Pausa de 2s entre páginas para no saturar el rate limit
+      if (i < imgPages.length - 1) await new Promise(r => setTimeout(r, 2000));
+    }
+
+    // ── Paso 3: generar resumen con todo el texto acumulado ──
+    setProgress(88, 'Generando resumen con Groq...');
+    const resRes = await fetch('/api/summarize-text', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ pages, filename: file.name })
+      body: JSON.stringify({ text: allText, filename: file.name })
     });
-    setProgress(90, 'Generando resumen...');
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || `Error ${res.status}`);
+    const resData = await resRes.json();
+    if (!resRes.ok) throw new Error(resData.error || `Error ${resRes.status}`);
 
     setProgress(100, '¡Listo!');
     setTimeout(() => setProgress(null), 1000);
 
-    S.apuntes.push({ id, name: file.name, type: 'pdf', chars: data.charCount });
+    S.apuntes.push({ id, name: file.name, type: 'pdf', chars: allText.length });
     saveApuntes(); renderApuntesList();
-    appendResumen(data.resumen);
-    toast(`✅ ${file.name} procesado (${totalPages} páginas, OCR automático)`, 'ok', 6000);
+    appendResumen(resData.resumen);
+    toast(`✅ ${file.name} procesado (${totalPages} págs)`, 'ok', 6000);
 
   } catch(err) {
     setProgress(null);
