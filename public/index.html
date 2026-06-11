@@ -133,6 +133,13 @@
   .err-box{background:rgba(239,83,80,.06);border:1px solid rgba(239,83,80,.25);border-radius:10px;padding:1rem;font-family:'DM Mono',monospace;font-size:.78rem;color:var(--danger);line-height:1.6;margin-top:.5rem}
   .apuntes-note-box{margin-top:.75rem;padding:.5rem .75rem;background:rgba(201,168,76,.08);border-left:3px solid var(--accent2);border-radius:0 6px 6px 0}
   .apuntes-note-label{font-family:'DM Mono',monospace;font-size:.62rem;color:var(--accent2);margin-bottom:.2rem}
+  /* FOOTER */
+  .app-footer{position:relative;z-index:1;text-align:center;padding:2.5rem 1.5rem 1.8rem;border-top:1px solid var(--border);margin-top:1rem}
+  .app-footer .footer-name{font-family:'Playfair Display',serif;font-size:.95rem;color:var(--text)}
+  .app-footer .footer-name span{color:var(--accent)}
+  .app-footer .footer-sub{font-family:'DM Mono',monospace;font-size:.65rem;color:var(--text-dim);letter-spacing:.12em;text-transform:uppercase;margin-top:.4rem}
+  .app-footer .footer-divider{width:40px;height:2px;background:linear-gradient(90deg,var(--accent),var(--accent3));border-radius:2px;margin:.9rem auto}
+
   /* REPASO — selector de medicamento */
   .repaso-drug-selector{display:flex;flex-wrap:wrap;gap:.5rem;margin-bottom:1.5rem}
   .repaso-drug-tab{padding:.4rem 1rem;border-radius:20px;font-family:'DM Mono',monospace;font-size:.73rem;cursor:pointer;transition:all .2s;border:1px solid var(--border);background:var(--surface2);color:var(--text-dim)}
@@ -262,6 +269,12 @@
   <p class="section-sub">Repasa flashcards de cualquier medicamento que hayas buscado</p>
   <div id="repasoContainer"></div>
 </div>
+
+<footer class="app-footer">
+  <div class="footer-divider"></div>
+  <div class="footer-name">Idea y desarrollo: <span>Juan Sebastián Morales Herrera</span></div>
+  <div class="footer-sub">PharmaChem · Asistente de Estudio Farmacológico</div>
+</footer>
 
 </div><!-- #app -->
 <div id="toast"></div>
